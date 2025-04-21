@@ -407,6 +407,10 @@
     <title>NYC Affordable Housing Analytics</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.7.1/d3-sankey.min.js"></script>
+    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -485,12 +489,12 @@
       </div>
       
 
-        <div class="row">
-            <div class="card wide-card">
-                <h3>Borough to Income Flow</h3>
-                <div class="viz-container" id="sankey-diagram"></div>
-            </div>
+      <div class="row">
+        <div class="card wide-card">
+            <h3>Housing Units Flow: Boroughs to Income Categories</h3>
+            <div id="sankey-diagram" class="viz-container tall"></div>
         </div>
+    </div>
 
         <div class="row">
             <div class="card">
@@ -529,6 +533,24 @@
             </div>
         </div>
     </div>
+    <!-- Add this to index.html -->
+<!-- <div class="card wide-card">
+  <h3>Affordable Housing Distribution by Borough and Construction Type</h3>
+  <div class="viz-container tall" id="treemap-container">
+      <div id="treemap"></div>
+      <div class="treemap-tooltip" id="treemap-tooltip"></div>
+  </div>
+  <div class="treemap-controls">
+      <div class="control-group">
+          <label for="treemap-color">Color By:</label>
+          <select id="treemap-color">
+              <option value="borough">Borough</option>
+              <option value="construction">Construction Type</option>
+          </select>
+      </div>
+  </div>
+</div> -->
+
 
     <div class="tooltip" id="tooltip"></div>
 
