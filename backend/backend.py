@@ -288,37 +288,138 @@ def get_sankey_data():
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 # Endpoint: Bar chart data by borough
+# @app.route('/borough_units', methods=['GET'])
+# def get_borough_units():
+#     try:
+#         # Group by borough and sum units
+#         borough_data = df.groupby('Borough').agg({
+#             'Total Units': 'sum',
+#             # 'Extremely Low Income Units': 'sum',
+#             # 'Very Low Income Units': 'sum',
+#             # 'Low Income Units': 'sum',
+#             # 'Moderate Income Units': 'sum',
+#             # 'Middle Income Units': 'sum',
+#             # 'Other Income Units': 'sum'
+#         }).reset_index()
+        
+#         return jsonify(borough_data.to_dict(orient='records'))
+#     except Exception as e:
+#         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+# Endpoint: Bar chart data by borough with year filter
 @app.route('/borough_units', methods=['GET'])
 def get_borough_units():
     try:
+        # Get year parameter from query string, default to all years
+        year = request.args.get('year')
+        
+        # Create a filtered dataframe based on year if provided
+        filtered_df = df
+        if year:
+            # Convert year to integer and filter by the Project Start Date
+            year = int(year)
+            # Assuming the date column is in format MM/DD/YYYY
+            filtered_df = df[df['Project Start Date'].str.contains(f'/{year}$', na=False)]
+        
         # Group by borough and sum units
-        borough_data = df.groupby('Borough').agg({
+        borough_data = filtered_df.groupby('Borough').agg({
             'Total Units': 'sum',
-            # 'Extremely Low Income Units': 'sum',
-            # 'Very Low Income Units': 'sum',
-            # 'Low Income Units': 'sum',
-            # 'Moderate Income Units': 'sum',
-            # 'Middle Income Units': 'sum',
-            # 'Other Income Units': 'sum'
+            'Extremely Low Income Units': 'sum',
+            'Very Low Income Units': 'sum',
+            'Low Income Units': 'sum',
+            'Moderate Income Units': 'sum',
+            'Middle Income Units': 'sum',
+            'Other Income Units': 'sum'
         }).reset_index()
         
         return jsonify(borough_data.to_dict(orient='records'))
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
+# Endpoint: Pie chart data with year filter
+@app.route('/pie_data', methods=['GET'])
+def get_pie_data():
+    try:
+        # Get year parameter from query string, default to all years
+        year = request.args.get('year')
+        
+        # Create a filtered dataframe based on year if provided
+        filtered_df = df
+        if year:
+            # Convert year to integer and filter by the Project Start Date
+            year = int(year)
+            # Assuming the date column is in format MM/DD/YYYY
+            filtered_df = df[df['Project Start Date'].str.contains(f'/{year}$', na=False)]
+        
+        # Construction type distribution
+        construction_data = filtered_df['Construction Type'].fillna('Unknown').value_counts().reset_index()
+        construction_data.columns = ['type', 'count']
+        
+        # Borough distribution
+        borough_data = filtered_df['Borough'].fillna('Unknown').value_counts().reset_index()
+        borough_data.columns = ['borough', 'count']
+        
+        return jsonify({
+            "construction": construction_data.to_dict(orient='records'),
+            "borough": borough_data.to_dict(orient='records')
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+
 # Endpoint: Geo map data
+# Endpoint: Geo map data
+# @app.route('/geo_data', methods=['GET'])
+# def get_geo_data():
+#     try:
+#         # Filter for buildings with valid coordinates
+#         geo_data = df[df['Latitude'].notna() & df['Longitude'].notna()].copy()
+        
+#         # Select relevant columns for the geo map visualization
+#         result = geo_data[['Project Name', 'Latitude', 'Longitude', 'Borough', 'Total Units',
+#                           'Construction Type', 'Extremely Low Income Units', 
+#                           'Very Low Income Units', 'Low Income Units', 'Moderate Income Units', 
+#                           'Middle Income Units', 'Other Income Units']].fillna('Unknown')
+        
+#         # Convert to records format
+#         records = result.to_dict(orient='records')
+        
+#         # Return as JSON
+#         return jsonify(records)
+#     except Exception as e:
+#         app.logger.error(f"Error in geo_data endpoint: {str(e)}")
+#         app.logger.error(traceback.format_exc())
+#         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
 @app.route('/geo_data', methods=['GET'])
 def get_geo_data():
     try:
+        # Get year parameter from query string
+        year = request.args.get('year')
+        
         # Filter for buildings with valid coordinates
         geo_data = df[df['Latitude'].notna() & df['Longitude'].notna()].copy()
         
-        # Select relevant columns
-        result = geo_data[['Latitude', 'Longitude', 'Borough', 'Total Units', 
-                           'Construction Type', 'Program Group']].fillna('Unknown')
+        # Filter by year if provided
+        if year:
+            # Convert year to integer and filter by the Project Start Date
+            year = int(year)
+            # Assuming the date column is in format MM/DD/YYYY
+            geo_data = geo_data[geo_data['Project Start Date'].str.contains(f'/{year}$', na=False)]
         
-        return jsonify(result.to_dict(orient='records'))
+        # Select relevant columns for the geo map visualization
+        result = geo_data[['Project Name', 'Latitude', 'Longitude', 'Borough', 'Total Units',
+                          'Construction Type', 'Extremely Low Income Units', 
+                          'Very Low Income Units', 'Low Income Units', 'Moderate Income Units', 
+                          'Middle Income Units', 'Other Income Units']].fillna('Unknown')
+        
+        # Convert to records format
+        records = result.to_dict(orient='records')
+        
+        # Return as JSON
+        return jsonify(records)
     except Exception as e:
+        app.logger.error(f"Error in geo_data endpoint: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 # Endpoint: Radar chart data
@@ -349,23 +450,23 @@ def get_radar_data():
 
 
 # Endpoint: Pie chart data
-@app.route('/pie_data', methods=['GET'])
-def get_pie_data():
-    try:
-        # Construction type distribution
-        construction_data = df['Construction Type'].fillna('Unknown').value_counts().reset_index()
-        construction_data.columns = ['type', 'count']
+# @app.route('/pie_data', methods=['GET'])
+# def get_pie_data():
+#     try:
+#         # Construction type distribution
+#         construction_data = df['Construction Type'].fillna('Unknown').value_counts().reset_index()
+#         construction_data.columns = ['type', 'count']
         
-        # Borough distribution
-        borough_data = df['Borough'].fillna('Unknown').value_counts().reset_index()
-        borough_data.columns = ['borough', 'count']
+#         # Borough distribution
+#         borough_data = df['Borough'].fillna('Unknown').value_counts().reset_index()
+#         borough_data.columns = ['borough', 'count']
         
-        return jsonify({
-            "construction": construction_data.to_dict(orient='records'),
-            "borough": borough_data.to_dict(orient='records')
-        })
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+#         return jsonify({
+#             "construction": construction_data.to_dict(orient='records'),
+#             "borough": borough_data.to_dict(orient='records')
+#         })
+#     except Exception as e:
+#         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 # Endpoint: Treemap Data
 @app.route('/treemap_data', methods=['GET'])

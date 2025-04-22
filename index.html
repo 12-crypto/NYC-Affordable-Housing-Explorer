@@ -462,11 +462,23 @@
                 <div class="viz-container" id="borough-pie"></div>
             </div>
         </div>
-
+        <div class="year-selector-container">
+            <h4>Filter by Year</h4>
+            <div class="year-input-group">
+              <button type="button" class="button hollow circle" data-quantity="minus" data-field="year">
+                -
+              </button>
+              <input class="input-group-field" type="number" name="year" value="2014" min="2014" max="2025" readonly>
+              <button type="button" class="button hollow circle" data-quantity="plus" data-field="year">
+                +
+              </button>
+            </div>
+          </div>
+          
         <div class="card wide-card">
           <h3>Geographic Distribution</h3>
           <div class="viz-container tall" id="geo-map"></div>
-          <div class="map-controls">
+          <!-- <div class="map-controls">
               <div class="control-group">
                   <label for="map-color-by">Color By:</label>
                   <select id="map-color-by">
@@ -485,7 +497,27 @@
                       <option value="extremely-low-income">Extremely Low Income Units</option>
                   </select>
               </div>
-          </div>
+          </div> -->
+          <div class="map-controls">
+            <div class="control-group">
+                <label for="map-color-by">Color By:</label>
+                <select id="map-color-by" onchange="updateMapSettings()">
+                    <option value="Borough">Borough</option>
+                    <option value="Construction Type">Construction Type</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="map-size-by">Size By:</label>
+                <select id="map-size-by" onchange="updateMapSettings()">
+                    <option value="Total Units">Total Units</option>
+                    <option value="Extremely Low Income Units">Extremely Low Income Units</option>
+                    <option value="Very Low Income Units">Very Low Income Units</option>
+                    <option value="Low Income Units">Low Income Units</option>
+                    <option value="Moderate Income Units">Moderate Income Units</option>
+                    <option value="Middle Income Units">Middle Income Units</option>
+                </select>
+            </div>
+        </div>
       </div>
       
 
@@ -496,24 +528,7 @@
         </div>
     </div>
 
-        <div class="row">
-            <div class="card">
-                <h3>PCA Variance Explained</h3>
-                <div class="viz-container" id="scree-plot"></div>
-            </div>
-            <div class="card">
-                <h3>PCA Biplot</h3>
-                <div class="viz-container" id="biplot"></div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="card wide-card">
-                <h3>MDS Clustering</h3>
-                <div class="viz-container" id="dataMDS"></div>
-            </div>
-        </div>
-
+       
         <div class="row">
             <div class="card wide-card">
                 <h3>Parallel Coordinates</h3>
@@ -522,7 +537,7 @@
             </div>
         </div>
 
-        <div class="row">
+        <!-- <div class="row">
             <div class="card">
                 <h3>Scatterplot Matrix</h3>
                 <div class="viz-container" id="scatterplot-matrix"></div>
@@ -531,7 +546,7 @@
                 <h3>Average Profile by Borough</h3>
                 <div class="viz-container" id="radar-chart"></div>
             </div>
-        </div>
+        </div> -->
     </div>
     <!-- Add this to index.html -->
 <!-- <div class="card wide-card">
