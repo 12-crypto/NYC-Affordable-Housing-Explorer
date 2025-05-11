@@ -5,9 +5,24 @@ let yearRange = [2000, 2025];
 let currentK = 3;
 let selectedDimension = 2;
 let filteredData = null;
+let currentPieType = 'construction';  // Persistent across reloads
+let selectedIncomeCategory = 'all';   // track which category was clicked
+
+let stackedInitialized    = false;
+let stackedSvg, stackedG;
+const hiddenCategories     = {};
+let yearSunburstInitialized = false;
+let sunburstInitialized = false,
+    sunburstSvg,
+    sunburstG,
+    sunburstDefs;
+
+
+
 
 // Create tooltip
 const tooltip = d3.select('#tooltip');
+
 
 // Utility functions
 function debounce(func, wait) {
@@ -32,6 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('year-min').addEventListener('input', updateYearRange);
     document.getElementById('year-max').addEventListener('input', updateYearRange);
     
+     // bind the toggle **once**:
+  document.getElementById('toggle-pie-btn')
+  .addEventListener('click', () => {
+    currentPieType = currentPieType === 'construction' ? 'borough' : 'construction';
+    loadCombinedPieChart();
+  });
     // Reset PCP button
     document.getElementById('reset-pcp').addEventListener('click', resetPCPBrushes);
 });
@@ -64,10 +85,9 @@ function initializeFilters() {
 function updateFilters() {
     selectedBorough = document.getElementById('borough-filter').value;
     selectedConstructionType = document.getElementById('construction-filter').value;
-    
-    // Reload visualizations with new filters
     loadAllVisualizations();
-}
+  }
+  
 
 // Update year range display and filters
 function updateYearRange() {
@@ -104,227 +124,14 @@ function resetPCPBrushes() {
 // Load all visualizations
 function loadAllVisualizations() {
     loadBarChartByBorough();
-    loadPieCharts();
+    loadCombinedPieChart();
+    //loadStackedBarChart();
+    loadSunburstYearChart();
     loadGeoMap();
     loadSankeyDiagram();
-    loadScreePlot();
-    loadBiplot();
-    loadMDSClustering();
     loadParallelCoordinates();
-    loadScatterplotMatrix();
-    loadRadarChart();
-    loadTreemap();
 }
 
-// // Load bar chart showing units by borough
-// function loadBarChartByBorough() {
-//     fetch(`${API_BASE_URL}/borough_units`)
-//         .then(response => response.json())
-//         .then(data => {
-//             if (!Array.isArray(data)) throw new Error('Invalid data format');
-            
-//             // Filter data if borough is selected
-//             if (selectedBorough !== 'all') {
-//                 data = data.filter(d => d.Borough === selectedBorough);
-//             }
-            
-//             // Set up dimensions
-//             const margin = {top: 20, right: 20, bottom: 60, left: 60};
-//             const width = document.getElementById('borough-chart').clientWidth - margin.left - margin.right;
-//             const height = document.getElementById('borough-chart').clientHeight - margin.top - margin.bottom;
-            
-//             // Clear previous chart
-//             d3.select('#borough-chart').html('');
-            
-//             // Create SVG
-//             const svg = d3.select('#borough-chart')
-//                 .append('svg')
-//                 .attr('width', width + margin.left + margin.right)
-//                 .attr('height', height + margin.top + margin.bottom)
-//                 .append('g')
-//                 .attr('transform', `translate(${margin.left},${margin.top})`);
-                
-//             // Set up scales
-//             const x = d3.scaleBand()
-//                 .domain(data.map(d => d.Borough))
-//                 .range([0, width])
-//                 .padding(0.2);
-                
-//             const y = d3.scaleLinear()
-//                 .domain([0, d3.max(data, d => d['Total Units'])])
-//                 .range([height, 0]);
-                
-//             // Add axes
-//             svg.append('g')
-//                 .attr('transform', `translate(0,${height})`)
-//                 .call(d3.axisBottom(x))
-//                 .selectAll('text')
-//                 .attr('transform', 'rotate(-45)')
-//                 .style('text-anchor', 'end');
-                
-//             svg.append('g')
-//                 .call(d3.axisLeft(y));
-                
-//             // Add bars
-//             svg.selectAll('.bar')
-//                 .data(data)
-//                 .enter()
-//                 .append('rect')
-//                 .attr('class', 'bar')
-//                 .attr('x', d => x(d.Borough))
-//                 .attr('width', x.bandwidth())
-//                 .attr('y', d => y(d['Total Units']))
-//                 .attr('height', d => height - y(d['Total Units']))
-//                 .attr('fill', '#0f52ba')
-//                 .on('mouseover', function(event, d) {
-//                     tooltip.style('display', 'block')
-//                         .html(`<strong>${d.Borough}</strong><br>Total Units: ${d['Total Units'].toLocaleString()}`)
-//                         .style('left', (event.pageX + 10) + 'px')
-//                         .style('top', (event.pageY - 20) + 'px');
-//                 })
-//                 .on('mouseout', function() {
-//                     tooltip.style('display', 'none');
-//                 })
-//                 .on('click', function(event, d) {
-//                     // Update borough filter and reload
-//                     document.getElementById('borough-filter').value = d.Borough;
-//                     updateFilters();
-//                 });
-//         })
-//         .catch(error => {
-//             console.error('Error loading borough chart:', error);
-//             d3.select('#borough-chart').html(`<div class="error-message">Error loading data</div>`);
-//         });
-// }
-
-// // Load pie charts for construction type and borough distribution
-// function loadPieCharts() {
-//     fetch(`${API_BASE_URL}/pie_data`)
-//         .then(response => response.json())
-//         .then(data => {
-//             if (!data.construction || !data.borough) throw new Error('Invalid pie chart data');
-            
-//             // Filter data if needed
-//             let constructionData = data.construction;
-//             let boroughData = data.borough;
-            
-//             if (selectedBorough !== 'all') {
-//                 constructionData = constructionData.filter(d => d.borough === selectedBorough);
-//             }
-            
-//             if (selectedConstructionType !== 'all') {
-//                 boroughData = boroughData.filter(d => d.type === selectedConstructionType);
-//             }
-            
-//             // Create construction type pie chart
-//             createPieChart('#construction-pie', constructionData, 'type', 'count');
-            
-//             // Create borough pie chart
-//             createPieChart('#borough-pie', boroughData, 'borough', 'count');
-//         })
-//         .catch(error => {
-//             console.error('Error loading pie charts:', error);
-//             d3.select('#construction-pie').html(`<div class="error-message">Error loading data</div>`);
-//             d3.select('#borough-pie').html(`<div class="error-message">Error loading data</div>`);
-//         });
-// }
-
-// // Helper function to create pie charts
-// function createPieChart(selector, data, labelKey, valueKey) {
-//     // Set up dimensions
-//     const width = document.querySelector(selector).clientWidth;
-//     const height = document.querySelector(selector).clientHeight;
-//     const radius = Math.min(width, height) / 2 - 20;
-    
-//     // Clear previous chart
-//     d3.select(selector).html('');
-    
-//     // Create SVG
-//     const svg = d3.select(selector)
-//         .append('svg')
-//         .attr('width', width)
-//         .attr('height', height)
-//         .append('g')
-//         .attr('transform', `translate(${width/2},${height/2})`);
-        
-//     // Color scale
-//     const color = d3.scaleOrdinal(d3.schemeCategory10);
-    
-//     // Pie layout
-//     const pie = d3.pie()
-//         .value(d => d[valueKey])
-//         .sort(null);
-        
-//     // Arc generator
-//     const arc = d3.arc()
-//         .innerRadius(0)
-//         .outerRadius(radius);
-        
-//     // Add arcs
-//     const arcs = svg.selectAll('.arc')
-//         .data(pie(data))
-//         .enter()
-//         .append('g')
-//         .attr('class', 'arc');
-        
-//     arcs.append('path')
-//         .attr('d', arc)
-//         .attr('fill', (d, i) => color(i))
-//         .attr('stroke', 'white')
-//         .style('stroke-width', '2px')
-//         .on('mouseover', function(event, d) {
-//             tooltip.style('display', 'block')
-//                 .html(`<strong>${d.data[labelKey]}</strong><br>${d.data[valueKey].toLocaleString()} (${(d.data[valueKey]/d3.sum(data, d => d[valueKey])*100).toFixed(1)}%)`)
-//                 .style('left', (event.pageX + 10) + 'px')
-//                 .style('top', (event.pageY - 20) + 'px');
-                
-//             d3.select(this)
-//                 .transition()
-//                 .duration(200)
-//                 .attr('transform', 'scale(1.05)');
-//         })
-//         .on('mouseout', function() {
-//             tooltip.style('display', 'none');
-            
-//             d3.select(this)
-//                 .transition()
-//                 .duration(200)
-//                 .attr('transform', 'scale(1)');
-//         })
-//         .on('click', function(event, d) {
-//             // Update filters based on selection
-//             if (selector === '#construction-pie') {
-//                 document.getElementById('construction-filter').value = d.data[labelKey];
-//             } else if (selector === '#borough-pie') {
-//                 document.getElementById('borough-filter').value = d.data[labelKey];
-//             }
-//             updateFilters();
-//         });
-        
-//     // Add legend if there's space
-//     if (height > 200) {
-//         const legend = svg.selectAll('.legend')
-//             .data(data)
-//             .enter()
-//             .append('g')
-//             .attr('class', 'legend')
-//             .attr('transform', (d, i) => `translate(${radius + 10},${-radius + 20 + i * 20})`);
-            
-//         legend.append('rect')
-//             .attr('width', 10)
-//             .attr('height', 10)
-//             .attr('fill', (d, i) => color(i));
-            
-//         legend.append('text')
-//             .attr('x', 15)
-//             .attr('y', 10)
-//             .text(d => {
-//                 const label = d[labelKey];
-//                 return label.length > 15 ? label.substring(0, 12) + '...' : label;
-//             })
-//             .style('font-size', '10px');
-//     }
-// }
 
 // Global variable to store the selected year
 let selectedYear = null;
@@ -405,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Update visualizations with the new year filter
   loadBarChartByBorough();
-  loadPieCharts();
+  loadCombinedPieChart();
   loadGeoMap(); // Assuming you have this function
   
   console.log(`Visualizations updated for year: ${year}`);
@@ -517,46 +324,6 @@ function loadBarChartByBorough() {
         });
 }
 
-// Updated loadPieCharts function with year parameter
-function loadPieCharts() {
-    // Construct URL with year parameter if selected
-    let url = `${API_BASE_URL}/pie_data`;
-    if (selectedYear) {
-        url += `?year=${selectedYear}`;
-    }
-    
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (!data.construction || !data.borough) throw new Error('Invalid pie chart data');
-            
-            // Filter data if needed
-            let constructionData = data.construction;
-            let boroughData = data.borough;
-            
-            if (selectedBorough !== 'all') {
-                constructionData = constructionData.filter(d => d.borough === selectedBorough);
-            }
-            
-            if (selectedConstructionType !== 'all') {
-                boroughData = boroughData.filter(d => d.type === selectedConstructionType);
-            }
-            
-            // Create construction type pie chart
-            createPieChart('#construction-pie', constructionData, 'type', 'count', 
-                ` ${selectedYear ? `(${selectedYear})` : ''}`);
-            
-            // Create borough pie chart
-            createPieChart('#borough-pie', boroughData, 'borough', 'count', 
-                ` ${selectedYear ? `(${selectedYear})` : ''}`);
-        })
-        .catch(error => {
-            console.error('Error loading pie charts:', error);
-            d3.select('#construction-pie').html(`<div class="error-message">Error loading data</div>`);
-            d3.select('#borough-pie').html(`<div class="error-message">Error loading data</div>`);
-        });
-}
-
 // Updated createPieChart function to include title
 function createPieChart(selector, data, labelKey, valueKey, title) {
     // Set up dimensions
@@ -629,23 +396,38 @@ function createPieChart(selector, data, labelKey, valueKey, title) {
                 .attr('transform', 'scale(1)');
         })
         .on('click', function(event, d) {
-            // Update filters based on selection
-            if (selector === '#construction-pie') {
-                document.getElementById('construction-filter').value = d.data[labelKey];
-            } else if (selector === '#borough-pie') {
-                document.getElementById('borough-filter').value = d.data[labelKey];
+            if (labelKey === 'type') {
+              // user clicked a construction slice
+              selectedConstructionType = d.data[labelKey];
+              document.getElementById('construction-filter').value = selectedConstructionType;
+          
+              // reset borough filter so it doesn’t overfilter
+              selectedBorough = 'all';
+              document.getElementById('borough-filter').value = 'all';
+          
+            } else { // borough slice
+              selectedBorough = d.data[labelKey];
+              document.getElementById('borough-filter').value = selectedBorough;
+          
+              // reset construction filter
+              selectedConstructionType = 'all';
+              document.getElementById('construction-filter').value = 'all';
             }
+          
             updateFilters();
-        });
-        
+          });
+               
     // Add legend if there's space
     if (height > 200) {
-        const legend = svg.selectAll('.legend')
-            .data(data)
-            .enter()
-            .append('g')
-            .attr('class', 'legend')
-            .attr('transform', (d, i) => `translate(${radius + 10},${-radius + 20 + i * 20})`);
+        // keep the legend INSIDE the right half of the chart
+const legendX = Math.min(radius + 10, width/2 - 80);
+
+const legend = svg.selectAll('.legend')
+  .data(data)
+  .enter().append('g')
+    .attr('class','legend')
+    .attr('transform',(d,i)=>`translate(${legendX},${-radius + 20 + i*20})`);
+
             
         legend.append('rect')
             .attr('width', 10)
@@ -663,22 +445,403 @@ function createPieChart(selector, data, labelKey, valueKey, title) {
     }
 }
 
-// Update the document ready function to initialize the year selector
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips, filters, etc.
-    // ...
+function loadCombinedPieChart() {
+    const pieContainer = document.getElementById('combined-pie');
+    if (!pieContainer) return;
+  
+    let url = `${API_BASE_URL}/pie_data`;
+    if (selectedYear) url += `?year=${selectedYear}`;
+  
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        const raw = currentPieType === 'construction' ? data.construction : data.borough;
+  
+        // apply only the relevant filter:
+        // always show the full, aggregated distribution
+const pieData = currentPieType === 'construction'
+? data.construction
+: data.borough;
+
+  
+        pieContainer.innerHTML = '';
+        if (!pieData.length) {
+          pieContainer.innerHTML = '<div class="error-message">No data available</div>';
+          return;
+        }
+  
+        const labelKey = currentPieType === 'construction' ? 'type' : 'borough';
+        const title = `${currentPieType === 'construction' ? 'Construction' : 'Borough'} Distribution`;
+  
+        createPieChart('#combined-pie', pieData, labelKey, 'count', title);
+      })
+      .catch(err => {
+        pieContainer.innerHTML = '<div class="error-message">Error loading chart</div>';
+        console.error(err);
+      });
+  }
+  
+
+//   function loadStackedBarChart() {
+//     const container = d3.select('#stacked-bar');
+//     const w = container.node().clientWidth;
+//     const h = container.node().clientHeight;
+//     const margin = { top: 20, right: 80, bottom: 40, left: 50 };
+//     const width  = w - margin.left - margin.right;
+//     const height = h - margin.top  - margin.bottom;
+  
+//     // 1) Initialize SVG & axis groups only once
+//     if (!stackedInitialized) {
+//       stackedSvg = container.append('svg')
+//         .attr('width',  w)
+//         .attr('height', h);
+  
+//       stackedG = stackedSvg.append('g')
+//         .attr('transform', `translate(${margin.left},${margin.top})`);
+  
+//       // placeholder for axes
+//       stackedG.append('g').attr('class','y-axis');
+//       stackedG.append('g').attr('class','x-axis')
+//         .attr('transform', `translate(0,${height})`);
+  
+//       stackedInitialized = true;
+//     }
+  
+//     // 2) Fetch & prepare data
+//     d3.json(`${API_BASE_URL}/stacked_income`)
+//       .then(rawData => {
+//         // all boroughs & categories
+//         const boroughs   = Array.from(new Set(rawData.map(d=>d.borough)));
+//         const allCats    = Array.from(new Set(rawData.map(d=>d.category)));
+  
+//         // ensure every category has a hidden flag
+//         allCats.forEach(cat => {
+//           if (hiddenCategories[cat] === undefined) hiddenCategories[cat] = false;
+//         });
+  
+//         // only show categories not hidden
+//         const visibleCats = allCats.filter(cat => !hiddenCategories[cat]);
+  
+//         // build stack on VISIBLE categories
+//         const series = d3.stack()
+//           .keys(visibleCats)
+//           .value((d,key)=> d.values[key]||0)
+//           (boroughs.map(b => {
+//             const vals = {};
+//             rawData.filter(r => r.borough===b)
+//                    .forEach(r => vals[r.category] = r.value);
+//             return { borough: b, values: vals };
+//           }));
+  
+//         // scales
+//         const x = d3.scaleBand()
+//           .domain(boroughs)
+//           .range([0, width])
+//           .padding(0.1);
+//         const y = d3.scaleLinear()
+//           .domain([0, d3.max(series[series.length-1], d=>d[1])])
+//           .nice()
+//           .range([height,0]);
+//         const color = d3.scaleOrdinal(d3.schemeCategory10)
+//           .domain(allCats);
+  
+//         // 3) Update axes
+//         stackedG.select('.y-axis')
+//           .transition().duration(300)
+//           .call(d3.axisLeft(y).ticks(5));
+//         stackedG.select('.x-axis')
+//           .transition().duration(300)
+//           .call(d3.axisBottom(x))
+//           .selectAll('text')
+//             .attr('transform','rotate(-45)')
+//             .style('text-anchor','end');
+  
+//         // 4) JOIN layers
+//         const layers = stackedG.selectAll('g.layer')
+//           .data(series, d=>d.key);
+//         layers.exit().remove();
+//         const layersEnter = layers.enter().append('g')
+//           .attr('class','layer')
+//           .attr('data-key', d=>d.key)
+//           .attr('fill', d=>color(d.key));
+//         const layersMerge = layersEnter.merge(layers);
+  
+//         // 5) JOIN & UPDATE rects
+//         layersMerge.each(function(layerData) {
+//           const layer = d3.select(this);
+//           const rects = layer.selectAll('rect')
+//             .data(layerData, d=>d.data.borough + '|' + layerData.key);
+//           rects.exit().remove();
+  
+//           const rectsEnter = rects.enter().append('rect')
+//             .on('mouseover', (e,d) => {
+//               tooltip.style('display','block')
+//                      .html(`<strong>${d.data.borough}</strong><br/>
+//                             ${(d[1]-d[0]).toLocaleString()} units`)
+//                      .style('left',  (e.pageX+10)+'px')
+//                      .style('top',   (e.pageY-20)+'px');
+//             })
+//             .on('mouseout', () => tooltip.style('display','none'))
+//             .on('click', (e,d) => {
+//               // pop & filter
+//               selectedBorough = d.data.borough;
+//               document.getElementById('borough-filter').value = selectedBorough;
+//               selectedIncomeCategory = layerData.key;
+//               updateFilters();
+//             });
+  
+//           rectsEnter.merge(rects)
+//             .transition().duration(300)
+//               .attr('x',      d=>x(d.data.borough))
+//               .attr('width',  x.bandwidth())
+//               .attr('y',      d => {
+//                 const base = y(d[1]);
+//                 return (d.data.borough===selectedBorough && layerData.key===selectedIncomeCategory)
+//                   ? base - 5
+//                   : base;
+//               })
+//               .attr('height', d => {
+//                 const segH = y(d[0]) - y(d[1]);
+//                 return (d.data.borough===selectedBorough && layerData.key===selectedIncomeCategory)
+//                   ? segH + 5
+//                   : segH;
+//               });
+//         });
+  
+//         // 6) STATIC LEGEND WITH STRIKE-THROUGH TOGGLE
+//         // remove old legend
+//         stackedSvg.selectAll('g.stacked-legend').remove();
+  
+//         const legend = stackedSvg.append('g')
+//           .attr('class','stacked-legend')
+//           .attr('transform', `translate(${margin.left + width + 10},${margin.top})`);
+  
+//         allCats.forEach((cat,i) => {
+//           const g = legend.append('g')
+//             .attr('class','legend-item')
+//             .attr('transform', `translate(0,${i*20})`)
+//             .style('cursor','pointer')
+//             .on('click', () => {
+//               // toggle hidden state
+//               hiddenCategories[cat] = !hiddenCategories[cat];
+//               loadStackedBarChart();   // re-draw with new visibleCats
+//             });
+  
+//           g.append('rect')
+//             .attr('width', 10)
+//             .attr('height', 10)
+//             .attr('fill',  color(cat));
+  
+//           g.append('text')
+//             .attr('x', 15)
+//             .attr('y', 10)
+//             .text(cat)
+//             .style('font-size','10px')
+//             .style('alignment-baseline','middle')
+//             .style('text-decoration', hiddenCategories[cat] ? 'line-through' : 'none')
+//             .style('opacity', hiddenCategories[cat] ? 0.5 : 1);
+//         });
+//       })
+//       .catch(err => {
+//         console.error('Error loading stacked bar data:', err);
+//       });
+//   }
+  
+  
+function loadSunburstYearChart() {
+    const container = d3.select('#sunburst-year');
+    if (!container.node()) return;
+  
+    // compute dims
+    const w = container.node().clientWidth;
+    const h = container.node().clientHeight;
+    const r = Math.min(w, h) / 2 - 10;
+    const rightMargin = 80;  // matches your legend clamp
+  
+    // 1) INITIALIZE SVG + GROUPS ONCE
+    if (!sunburstInitialized) {
+      container.selectAll('*').remove();
+  
+      sunburstSvg = container.append('svg')
+        .attr('width', w)
+        .attr('height', h);
+  
+      // group for arcs
+      sunburstG = sunburstSvg.append('g')
+        .attr('transform', `translate(${w/2},${h/2})`);
+  
+      // defs for gradient
+      sunburstDefs = sunburstSvg.append('defs');
+  
+      sunburstInitialized = true;
+    }
+  
+    // 2) LOAD & PARTITION
+    d3.json(`${API_BASE_URL}/sunburst_years`)
+      .then(data => {
+        const root = d3.hierarchy(data)
+          .sum(d => d.value)
+          .sort((a,b) => b.value - a.value);
+  
+        d3.partition().size([2*Math.PI, r])(root);
+  
+        // year domain & color ramp
+        const years = root.children.map(d => +d.data.name).sort((a,b)=>a-b);
+        const yearColor = d3.scaleSequential()
+          .domain([years[0], years[years.length-1]])
+          .interpolator(d3.interpolateRgb("#deb887", "#8b4513"));
+  
+        // borough palette
+        const boroughColors = {
+          'Bronx':        '#ff7f0e',
+          'Brooklyn':     '#1f77b4',
+          'Manhattan':    '#2ca02c',
+          'Queens':       '#d62728',
+          'Staten Island':'#9467bd'
+        };
+  
+        // arc generator
+        const arc = d3.arc()
+          .startAngle(d => d.x0)
+          .endAngle(  d => d.x1)
+          .innerRadius(d => d.y0)
+          .outerRadius(d => d.y1);
+  
+        // 3) JOIN PATHS
+        const nodes = root.descendants().filter(d=>d.depth>0);
+        const paths = sunburstG.selectAll('path.arc')
+          .data(nodes, d=>`${d.data.name}|${d.depth}`);
+  
+        // exit old
+        paths.exit().remove();
+  
+        // enter new
+        const pathsEnter = paths.enter().append('path')
+          .attr('class','arc')
+          .attr('stroke','#fff')
+          .on('mouseover',(e,d)=>{
+            const label = d.depth===1
+              ? `Year: ${d.data.name}`
+              : `Borough: ${d.data.name}`;
+            const info = d.depth===2
+              ? `<br/>Units: ${d.value.toLocaleString()}`
+              : '';
+            tooltip.style('display','block')
+                   .html(`<strong>${label}</strong>${info}`)
+                   .style('left', (e.pageX+10)+'px')
+                   .style('top',  (e.pageY-20)+'px');
+          })
+          .on('mouseout',()=>tooltip.style('display','none'))
+          .on('click',(e,d)=>{
+            if (d.depth===1) {
+              selectedYear = +d.data.name;
+              document.querySelector('input[name="year"]').value = selectedYear;
+              updateFilters();
+            }
+          });
+  
+        // update + transition
+        pathsEnter.merge(paths)
+          .transition().duration(300)
+          .attr('d', arc)
+          .attr('fill', d => d.depth===1
+            ? yearColor(+d.data.name)
+            : boroughColors[d.data.name] || '#ccc'
+          );
+  
+        // 4) UPDATE LEGENDS (static—replacing full redraw)
+        // compute legend positions
+        const legendX = w - rightMargin - 120;      // barWidth = 120
+        const legendY = -r;
+  
+        // BOROUGH LEGEND
+        // remove old, then re‐draw
+        sunburstG.selectAll('g.borough-legend').remove();
+        const bl = sunburstG.append('g')
+          .attr('class','borough-legend')
+          .attr('transform',`translate(${legendX},${legendY})`);
+        Object.entries(boroughColors).forEach(([b,col], i) => {
+          const g = bl.append('g')
+            .attr('transform',`translate(0,${i*20})`);
+          g.append('rect')
+            .attr('width',10).attr('height',10)
+            .attr('fill',col);
+          g.append('text')
+            .attr('x',15).attr('y',10)
+            .text(b)
+            .style('font-size','10px')
+            .attr('alignment-baseline','middle');
+        });
+  
+        // YEAR GRADIENT LEGEND
+        sunburstDefs.selectAll('#yearGradient').remove();
+        const grad = sunburstDefs.append('linearGradient')
+          .attr('id','yearGradient')
+          .attr('x1','0%').attr('y1','0%')
+          .attr('x2','100%').attr('y2','0%');
+  
+        grad.append('stop')
+          .attr('offset','0%')
+          .attr('stop-color', yearColor(years[0]));
+        grad.append('stop')
+          .attr('offset','100%')
+          .attr('stop-color', yearColor(years[years.length-1]));
+  
+        // position gradient bar
+        const barY = legendY + Object.keys(boroughColors).length*20 + 20;
+        sunburstG.selectAll('rect.year-bar').remove();
+        sunburstG.append('rect')
+          .attr('class','year-bar')
+          .attr('x', legendX)
+          .attr('y', barY)
+          .attr('width', 120)
+          .attr('height', 10)
+          .style('fill','url(#yearGradient)');
+  
+        // min/max labels
+        sunburstG.selectAll('text.year-label').remove();
+        sunburstG.append('text')
+          .attr('class','year-label')
+          .attr('x', legendX)
+          .attr('y', barY + 12)
+          .text(years[0])
+          .style('font-size','10px')
+          .attr('alignment-baseline','hanging');
+  
+        sunburstG.append('text')
+          .attr('class','year-label')
+          .attr('x', legendX + 120)
+          .attr('y', barY + 12)
+          .text(years[years.length-1])
+          .style('font-size','10px')
+          .attr('text-anchor','end')
+          .attr('alignment-baseline','hanging');
+      })
+      .catch(err => console.error('Error loading sunburst_years:', err));
+  }
+  
+  
+  
+
+// // Update the document ready function to initialize the year selector
+// document.addEventListener('DOMContentLoaded', function() {
+//     // Initialize tooltips, filters, etc.
+//     // ...
     
-    // Initialize year selector
-    initYearSelector();
+//     // Initialize year selector
+//     initYearSelector();
     
-    // Load all visualizations
-    loadAllVisualizations();
-});
+//     // Load all visualizations
+//     loadAllVisualizations();
+// });
 
 // Load all visualizations
 function loadAllVisualizations() {
   loadBarChartByBorough();
-  loadPieCharts();
+  loadCombinedPieChart();
+  //loadStackedBarChart();
+  loadSunburstYearChart();
+  //loadSunburstYearChart();
   loadGeoMap();
   // Other visualization functions...
 }
@@ -976,401 +1139,7 @@ function addMapLegend(data) {
   
   mapLegend.addTo(map);
 }
-// function loadGeoMap() {
-//   // Get filter values from select elements (if they exist)
-//   const colorBySelect = document.getElementById('map-color-by');
-//   const sizeBySelect = document.getElementById('map-size-by');
-  
-//   if (colorBySelect) mapColorBy = colorBySelect.value;
-//   if (sizeBySelect) mapSizeBy = sizeBySelect.value;
-  
-//   fetch(`${API_BASE_URL}/geo_data`)
-//       .then(response => response.json())
-//       .then(data => {
-//           if (!Array.isArray(data)) throw new Error('Invalid geo data format');
-          
-//           // Filter data based on selected filters
-//           if (selectedBorough !== 'all') {
-//               data = data.filter(d => d.Borough === selectedBorough);
-//           }
-          
-//           if (selectedConstructionType !== 'all') {
-//               data = data.filter(d => d['Construction Type'] === selectedConstructionType);
-//           }
-          
-//           // Clear previous map if it exists
-//           if (map) {
-//               map.remove();
-//           }
-          
-//           // Create map
-//           const mapContainer = document.getElementById('geo-map');
-//           map = L.map(mapContainer).setView([40.7128, -74.0060], 11);
-          
-//           // Add this to your map initialization - FIX FOR POPUP FLICKERING
-//           map.on('click', function(e) {
-//               // Close all popups when clicking on the map (but not on markers)
-//               if (!e.originalEvent._stopped) {
-//                   map.closePopup();
-//               }
-//           });
-          
-//           // Make popups interactive - FIX FOR POPUP INTERACTION
-//           map.on('popupopen', function(e) {
-//               const popup = e.popup;
-//               const container = popup.getElement();
-              
-//               // Prevent clicks inside popup from closing it
-//               L.DomEvent.disableClickPropagation(container);
-              
-//               // Allow scrolling inside popup without zooming the map
-//               L.DomEvent.disableScrollPropagation(container);
-//           });
 
-          
-          
-//           // Add tile layer
-//           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-//               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-//           }).addTo(map);
-          
-//           // Color scales
-//           const boroughColors = {
-//               'Bronx': '#ff7f0e',
-//               'Brooklyn': '#1f77b4',
-//               'Manhattan': '#2ca02c',
-//               'Queens': '#d62728',
-//               'Staten Island': '#9467bd'
-//           };
-          
-//           const constructionColors = {
-//               'New Construction': '#8c564b',
-//               'Preservation': '#e377c2',
-//               'Unknown': '#7f7f7f'
-//           };
-          
-//           // Find max value for size scaling
-//           const maxValue = d3.max(data, d => +d[mapSizeBy] || 0);
-          
-//           // Add points
-//           data.forEach(d => {
-//               // Determine color based on selected color attribute
-//               let color;
-//               if (mapColorBy === 'Borough') {
-//                   color = boroughColors[d.Borough] || '#888888';
-//               } else if (mapColorBy === 'Construction Type') {
-//                   color = constructionColors[d['Construction Type']] || '#888888';
-//               }
-              
-//               // Calculate radius based on selected size attribute
-//               // Use square root scale for better visual representation
-//               const value = +d[mapSizeBy] || 0;
-//               const radius = Math.sqrt(value / maxValue) * 20;
-              
-//               const circle = L.circleMarker([d.Latitude, d.Longitude], {
-//                   radius: Math.max(radius, 1), // Minimum radius of 3
-//                   fillColor: color,
-//                   color: '#fff',
-//                   weight: 1,
-//                   opacity: 1,
-//                   fillOpacity: 0.8,
-//                   className: 'custom-marker'
-//               }).addTo(map);
-              
-//               // Create tooltip content
-//               const tooltipContent = `
-//                   <strong>${d['Project Name'] || 'Unnamed Project'}</strong><br>
-//                   ${d.Borough}<br>
-//                   ${d['Total Units']} units
-//               `;
-              
-//               // Create popup content with more details
-//               const popupContent = `
-//                   <div class="popup-content">
-//                       <h4>${d['Project Name'] || 'Unnamed Project'}</h4>
-//                       <p><strong>Borough:</strong> ${d.Borough}</p>
-//                       <p><strong>Total Units:</strong> ${d['Total Units']}</p>
-//                       <p><strong>Construction Type:</strong> ${d['Construction Type']}</p>
-//                       <p><strong>Income Units:</strong></p>
-//                       <ul>
-//                           <li>Extremely Low: ${d['Extremely Low Income Units'] || 0}</li>
-//                           <li>Very Low: ${d['Very Low Income Units'] || 0}</li>
-//                           <li>Low: ${d['Low Income Units'] || 0}</li>
-//                           <li>Moderate: ${d['Moderate Income Units'] || 0}</li>
-//                           <li>Middle: ${d['Middle Income Units'] || 0}</li>
-//                           <li>Other: ${d['Other Income Units'] || 0}</li>
-//                       </ul>
-//                   </div>
-//               `;
-              
-              
-//               // Bind tooltip and popup
-//               circle.bindTooltip(tooltipContent, {
-//                   direction: 'top',
-//                   offset: L.point(0, -radius),
-//                   opacity: 0.9,
-//                   className: 'custom-tooltip'
-//               });
-              
-//               circle.bindPopup(popupContent, {
-//                   maxWidth: 300,
-//                   className: 'custom-popup',
-//                   closeButton: true,
-//                   closeOnClick: false  // Important: prevents popup from closing when clicking inside it
-//               });
-              
-//               // Add this to your circle marker creation - FIX FOR TOOLTIP FLICKERING
-//               let activeTooltip = null;
-
-//               circle.on('click', function(e) {
-//                   // Close any open tooltip
-//                   if (activeTooltip) {
-//                       activeTooltip.closeTooltip();
-//                   }
-                  
-//                   // If this marker doesn't have the active tooltip, open it
-//                   if (activeTooltip !== this) {
-//                       this.openTooltip();
-//                       activeTooltip = this;
-//                   } else {
-//                       // If clicking the same marker, just close it
-//                       activeTooltip = null;
-//                   }
-//               });
-
-//               circle.on('mouseout', function(e) {
-//                   L.DomEvent.stopPropagation(e);
-//                   this.closeTooltip();
-//               });
-              
-//               // Add this to your circle marker creation - FIX FOR POPUP FLICKERING
-//               circle.on('click', function(e) {
-//                   // Stop event propagation to prevent map click
-//                   L.DomEvent.stopPropagation(e);
-//                   // Open popup
-//                   this.openPopup();
-//               });
-//           });
-          
-//           // Add legend
-//           addMapLegend(data);
-          
-//           // Fit bounds to data points
-//           if (data.length > 0) {
-//               const bounds = L.latLngBounds(data.map(d => [d.Latitude, d.Longitude]));
-//               map.fitBounds(bounds);
-//           }
-//       })
-//       .catch(error => {
-//           console.error('Error loading geo map:', error);
-//           document.getElementById('geo-map').innerHTML = `<div class="error-message">Error loading map data: ${error.message}</div>`;
-//       });
-// }
-
-// function loadGeoMap() {
-//   // Get filter values from select elements (if they exist)
-//   const colorBySelect = document.getElementById('map-color-by');
-//   const sizeBySelect = document.getElementById('map-size-by');
-  
-//   if (colorBySelect) mapColorBy = colorBySelect.value;
-//   if (sizeBySelect) mapSizeBy = sizeBySelect.value;
-  
-//   fetch(`${API_BASE_URL}/geo_data`)
-//       .then(response => response.json())
-//       .then(data => {
-//           if (!Array.isArray(data)) throw new Error('Invalid geo data format');
-          
-//           // Filter data based on selected filters
-//           if (selectedBorough !== 'all') {
-//               data = data.filter(d => d.Borough === selectedBorough);
-//           }
-          
-//           if (selectedConstructionType !== 'all') {
-//               data = data.filter(d => d['Construction Type'] === selectedConstructionType);
-//           }
-          
-//           // Clear previous map if it exists
-//           if (map) {
-//               map.remove();
-//           }
-          
-//           // Create map
-//           const mapContainer = document.getElementById('geo-map');
-//           map = L.map(mapContainer).setView([40.7128, -74.0060], 11);
-          
-//           // Store active tooltip globally
-//           let activeTooltip = null;
-          
-//           // Add click handler to close tooltips when clicking on the map
-//           map.on('click', function(e) {
-//               // Close all tooltips when clicking on the map
-//               if (activeTooltip) {
-//                   activeTooltip.closeTooltip();
-//                   activeTooltip = null;
-//               }
-              
-//               // Close all popups when clicking on the map (but not on markers)
-//               if (!e.originalEvent._stopped) {
-//                   map.closePopup();
-//               }
-//           });
-          
-//           // Make popups interactive
-//           map.on('popupopen', function(e) {
-//               const popup = e.popup;
-//               const container = popup.getElement();
-              
-//               // Prevent clicks inside popup from closing it
-//               L.DomEvent.disableClickPropagation(container);
-              
-//               // Allow scrolling inside popup without zooming the map
-//               L.DomEvent.disableScrollPropagation(container);
-//           });
-          
-//           // Add tile layer
-//           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-//               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-//           }).addTo(map);
-          
-//           // Color scales
-//           const boroughColors = {
-//               'Bronx': '#ff7f0e',
-//               'Brooklyn': '#1f77b4',
-//               'Manhattan': '#2ca02c',
-//               'Queens': '#d62728',
-//               'Staten Island': '#9467bd'
-//           };
-          
-//           const constructionColors = {
-//               'New Construction': '#8c564b',
-//               'Preservation': '#e377c2',
-//               'Unknown': '#7f7f7f'
-//           };
-          
-//           // Find max value for size scaling
-//           const maxValue = d3.max(data, d => +d[mapSizeBy] || 0);
-          
-//           // Create an array to store all markers
-//           const markers = [];
-          
-//           // Add points
-//           data.forEach(d => {
-//               // Determine color based on selected color attribute
-//               let color;
-//               if (mapColorBy === 'Borough') {
-//                   color = boroughColors[d.Borough] || '#888888';
-//               } else if (mapColorBy === 'Construction Type') {
-//                   color = constructionColors[d['Construction Type']] || '#888888';
-//               }
-              
-//               // Calculate radius based on selected size attribute
-//               // Use square root scale for better visual representation
-//               const value = +d[mapSizeBy] || 0;
-//               const radius = Math.sqrt(value / maxValue) * 20;
-              
-//               const circle = L.circleMarker([d.Latitude, d.Longitude], {
-//                   radius: Math.max(radius, 3), // Minimum radius of 3
-//                   fillColor: color,
-//                   color: '#fff',
-//                   weight: 1,
-//                   opacity: 1,
-//                   fillOpacity: 0.8,
-//                   className: 'custom-marker',
-//                   bubblingMouseEvents: false, // Prevent event bubbling
-//                   interactive: true // Make sure it's interactive
-//               }).addTo(map);
-              
-//               // Store marker reference
-//               markers.push(circle);
-              
-//               // Create tooltip content
-//               const tooltipContent = `
-//                   <strong>${d['Project Name'] || 'Unnamed Project'}</strong><br>
-//                   ${d.Borough}<br>
-//                   ${d['Total Units']} units
-//               `;
-              
-//               // Create popup content with more details
-//               const popupContent = `
-//                   <div class="popup-content">
-//                       <h4>${d['Project Name'] || 'Unnamed Project'}</h4>
-//                       <p><strong>Borough:</strong> ${d.Borough}</p>
-//                       <p><strong>Total Units:</strong> ${d['Total Units']}</p>
-//                       <p><strong>Construction Type:</strong> ${d['Construction Type']}</p>
-//                       <p><strong>Income Units:</strong></p>
-//                       <ul>
-//                           <li>Extremely Low: ${d['Extremely Low Income Units'] || 0}</li>
-//                           <li>Very Low: ${d['Very Low Income Units'] || 0}</li>
-//                           <li>Low: ${d['Low Income Units'] || 0}</li>
-//                           <li>Moderate: ${d['Moderate Income Units'] || 0}</li>
-//                           <li>Middle: ${d['Middle Income Units'] || 0}</li>
-//                           <li>Other: ${d['Other Income Units'] || 0}</li>
-//                       </ul>
-//                   </div>
-//               `;
-              
-//               // Bind tooltip with fixed position and no auto-open
-//               circle.bindTooltip(tooltipContent, {
-//                   direction: 'top',
-//                   offset: L.point(0, -radius -1), // Extra offset to prevent overlap
-//                   sticky: false, // Don't follow cursor
-//                   opacity: 0.9,
-//                   className: 'custom-tooltip',
-//                   permanent: false
-//               });
-              
-//               // Disable default tooltip behavior (important!)
-//               circle.off('mouseover');
-//               circle.off('mouseout');
-              
-//               // Bind popup
-//               circle.bindPopup(popupContent, {
-//                   maxWidth: 300,
-//                   className: 'custom-popup',
-//                   closeButton: true,
-//                   closeOnClick: false  // Prevents popup from closing when clicking inside it
-//               });
-              
-//               // Handle click event for both tooltip and popup
-//               circle.on('click', function(e) {
-//                   // Stop event propagation
-//                   L.DomEvent.stopPropagation(e);
-                  
-//                   // Close any previously open tooltip
-//                   if (activeTooltip && activeTooltip !== this) {
-//                       activeTooltip.closeTooltip();
-//                   }
-                  
-//                   // Toggle tooltip
-//                   if (activeTooltip === this) {
-//                       this.closeTooltip();
-//                       activeTooltip = null;
-//                   } else {
-//                       this.openTooltip();
-//                       activeTooltip = this;
-//                   }
-                  
-//                   // Open popup
-//                   this.openPopup();
-//               });
-
-              
-//           });
-          
-//           // Add legend
-//           addMapLegend(data);
-          
-//           // Fit bounds to data points
-//           if (data.length > 0) {
-//               const bounds = L.latLngBounds(data.map(d => [d.Latitude, d.Longitude]));
-//               map.fitBounds(bounds);
-//           }
-//       })
-//       .catch(error => {
-//           console.error('Error loading geo map:', error);
-//           document.getElementById('geo-map').innerHTML = `<div class="error-message">Error loading map data: ${error.message}</div>`;
-//       });
-// }
 
 // Function to add legend to map
 function addMapLegend(data) {
@@ -1450,283 +1219,577 @@ function updateMapSettings() {
 }
 
 
-function loadSankeyPlot() {
-  fetch('http://localhost:5001/sankey_data')
-    .then(response => response.json())
-    .then(data => {
-      if (!data.nodes || !data.links) throw new Error('Invalid Sankey data format');
+// function loadSankeyPlot() {
+//   fetch('http://localhost:5001/sankey_data')
+//     .then(response => response.json())
+//     .then(data => {
+//       if (!data.nodes || !data.links) throw new Error('Invalid Sankey data format');
       
-      // Set up dimensions
-      const margin = {top: 30, right: 150, bottom: 20, left: 150};
-      const width = document.getElementById('sankey-diagram').clientWidth - margin.left - margin.right;
-      const height = document.getElementById('sankey-diagram').clientHeight - margin.top - margin.bottom;
+//       // Set up dimensions
+//       const margin = {top: 30, right: 150, bottom: 20, left: 150};
+//       const width = document.getElementById('sankey-diagram').clientWidth - margin.left - margin.right;
+//       const height = document.getElementById('sankey-diagram').clientHeight - margin.top - margin.bottom;
       
-      // Clear previous chart
-      d3.select('#sankey-diagram').html('');
+//       // Clear previous chart
+//       d3.select('#sankey-diagram').html('');
       
-      // Create SVG with a light background
-      const svg = d3.select('#sankey-diagram')
-        .append('svg')
-        .attr('width', width + margin.left + margin.right)
-        .attr('height', height + margin.top + margin.bottom)
-        .append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+//       // Create SVG with a light background
+//       const svg = d3.select('#sankey-diagram')
+//         .append('svg')
+//         .attr('width', width + margin.left + margin.right)
+//         .attr('height', height + margin.top + margin.bottom)
+//         .append('g')
+//         .attr('transform', `translate(${margin.left},${margin.top})`);
       
-      // Create Sankey generator
-      const sankey = d3.sankey()
-        .nodeWidth(25)
-        .nodePadding(15)
-        .extent([[1, 1], [width - 1, height - 5]]);
+//       // Create Sankey generator
+//       const sankey = d3.sankey()
+//         .nodeWidth(25)
+//         .nodePadding(15)
+//         .extent([[1, 1], [width - 1, height - 5]]);
       
-      // Format the data for the Sankey layout
-      const graph = sankey({
-        nodes: data.nodes.map(d => Object.assign({}, d)),
-        links: data.links.map(d => Object.assign({}, d))
-      });
+//       // Format the data for the Sankey layout
+//       const graph = sankey({
+//         nodes: data.nodes.map(d => Object.assign({}, d)),
+//         links: data.links.map(d => Object.assign({}, d))
+//       });
       
-      // Create vibrant color scales for nodes
-      const boroughColors = {
-        'Bronx': '#FF6B6B',
-        'Brooklyn': '#4ECDC4',
-        'Manhattan': '#45B7D1',
-        'Queens': '#FFA62B',
-        'Staten Island': '#845EC2'
-      };
+//       // Create vibrant color scales for nodes
+//       const boroughColors = {
+//         'Bronx': '#FF6B6B',
+//         'Brooklyn': '#4ECDC4',
+//         'Manhattan': '#45B7D1',
+//         'Queens': '#FFA62B',
+//         'Staten Island': '#845EC2'
+//       };
       
-      const incomeColors = {
-        'Extremely Low Income Units': '#1E3A8A',
-        'Very Low Income Units': '#1E40AF',
-        'Low Income Units': '#2563EB',
-        'Moderate Income Units': '#3B82F6',
-        'Middle Income Units': '#60A5FA',
-        'Other Income Units': '#93C5FD'
-      };
+//       const incomeColors = {
+//         'Extremely Low Income Units': '#1E3A8A',
+//         'Very Low Income Units': '#1E40AF',
+//         'Low Income Units': '#2563EB',
+//         'Moderate Income Units': '#3B82F6',
+//         'Middle Income Units': '#60A5FA',
+//         'Other Income Units': '#93C5FD'
+//       };
       
-      // Function to get node color
-      function getNodeColor(node) {
-        if (boroughColors[node.name]) {
-          return boroughColors[node.name];
-        } else if (incomeColors[node.name]) {
-          return incomeColors[node.name];
-        }
-        return '#888888'; // Default color
-      }
+//       // Function to get node color
+//       function getNodeColor(node) {
+//         if (boroughColors[node.name]) {
+//           return boroughColors[node.name];
+//         } else if (incomeColors[node.name]) {
+//           return incomeColors[node.name];
+//         }
+//         return '#888888'; // Default color
+//       }
       
-      // Create gradient definitions for links
-      const defs = svg.append('defs');
+//       // Create gradient definitions for links
+//       const defs = svg.append('defs');
       
-      // Create gradients for each link
-      graph.links.forEach((link, i) => {
-        const gradientId = `link-gradient-${i}`;
-        const gradient = defs.append('linearGradient')
-          .attr('id', gradientId)
-          .attr('gradientUnits', 'userSpaceOnUse')
-          .attr('x1', link.source.x1)
-          .attr('x2', link.target.x0);
+//       // Create gradients for each link
+//       graph.links.forEach((link, i) => {
+//         const gradientId = `link-gradient-${i}`;
+//         const gradient = defs.append('linearGradient')
+//           .attr('id', gradientId)
+//           .attr('gradientUnits', 'userSpaceOnUse')
+//           .attr('x1', link.source.x1)
+//           .attr('x2', link.target.x0);
         
-        // Start color (source node color)
-        gradient.append('stop')
-          .attr('offset', '0%')
-          .attr('stop-color', getNodeColor(link.source))
-          .attr('stop-opacity', 0.8);
+//         // Start color (source node color)
+//         gradient.append('stop')
+//           .attr('offset', '0%')
+//           .attr('stop-color', getNodeColor(link.source))
+//           .attr('stop-opacity', 0.8);
         
-        // End color (target node color)
-        gradient.append('stop')
-          .attr('offset', '100%')
-          .attr('stop-color', getNodeColor(link.target))
-          .attr('stop-opacity', 0.8);
-      });
+//         // End color (target node color)
+//         gradient.append('stop')
+//           .attr('offset', '100%')
+//           .attr('stop-color', getNodeColor(link.target))
+//           .attr('stop-opacity', 0.8);
+//       });
       
-      // Add links with gradients and improved styling
-      const link = svg.append('g')
-        .selectAll('.link')
-        .data(graph.links)
-        .enter()
-        .append('path')
-        .attr('class', 'link')
-        .attr('d', d3.sankeyLinkHorizontal())
-        .attr('stroke-width', d => Math.max(1, d.width))
-        .attr('stroke', (d, i) => `url(#link-gradient-${i})`)
-        .style('fill', 'none')
-        .style('stroke-opacity', 0.7)
-        .on('mouseover', function(event, d) {
-          // Highlight this link
-          d3.select(this)
-            .style('stroke-opacity', 1)
-            .attr('stroke-width', d => Math.max(1, d.width + 2));
+//       // Add links with gradients and improved styling
+//       const link = svg.append('g')
+//         .selectAll('.link')
+//         .data(graph.links)
+//         .enter()
+//         .append('path')
+//         .attr('class', 'link')
+//         .attr('d', d3.sankeyLinkHorizontal())
+//         .attr('stroke-width', d => Math.max(1, d.width))
+//         .attr('stroke', (d, i) => `url(#link-gradient-${i})`)
+//         .style('fill', 'none')
+//         .style('stroke-opacity', 0.7)
+//         .on('mouseover', function(event, d) {
+//           // Highlight this link
+//           d3.select(this)
+//             .style('stroke-opacity', 1)
+//             .attr('stroke-width', d => Math.max(1, d.width + 2));
           
-          // Highlight connected nodes
-          node.filter(n => n === d.source || n === d.target)
-            .style('stroke', '#000')
-            .style('stroke-width', 2);
+//           // Highlight connected nodes
+//           node.filter(n => n === d.source || n === d.target)
+//             .style('stroke', '#000')
+//             .style('stroke-width', 2);
           
-          // Show tooltip
-          const tooltip = d3.select("body").append("div")
-            .attr("class", "tooltip")
-            .style("display", "block")
-            .style("position", "absolute")
-            .style("background", "rgba(0,0,0,0.8)")
-            .style("color", "white")
-            .style("padding", "10px")
-            .style("border-radius", "5px")
-            .style("font-size", "12px")
-            .style("pointer-events", "none")
-            .style("z-index", 1000)
-            .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
+//           // Show tooltip
+//           const tooltip = d3.select("body").append("div")
+//             .attr("class", "tooltip")
+//             .style("display", "block")
+//             .style("position", "absolute")
+//             .style("background", "rgba(0,0,0,0.8)")
+//             .style("color", "white")
+//             .style("padding", "10px")
+//             .style("border-radius", "5px")
+//             .style("font-size", "12px")
+//             .style("pointer-events", "none")
+//             .style("z-index", 1000)
+//             .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
           
-          tooltip.html(`
-            <strong>${d.source.name} → ${d.target.name}</strong><br>
-            ${d.value.toLocaleString()} units (${(d.value / d.source.value * 100).toFixed(1)}%)
-          `)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 20) + 'px');
-        })
-        .on('mouseout', function() {
-          // Reset styles
-          d3.select(this)
-            .style('stroke-opacity', 0.7)
-            .attr('stroke-width', d => Math.max(1, d.width));
+//           tooltip.html(`
+//             <strong>${d.source.name} → ${d.target.name}</strong><br>
+//             ${d.value.toLocaleString()} units (${(d.value / d.source.value * 100).toFixed(1)}%)
+//           `)
+//             .style('left', (event.pageX + 10) + 'px')
+//             .style('top', (event.pageY - 20) + 'px');
+//         })
+//         .on('mouseout', function() {
+//           // Reset styles
+//           d3.select(this)
+//             .style('stroke-opacity', 0.7)
+//             .attr('stroke-width', d => Math.max(1, d.width));
           
-          // Reset node highlighting
-          node.style('stroke', '#fff')
-            .style('stroke-width', 1);
+//           // Reset node highlighting
+//           node.style('stroke', '#fff')
+//             .style('stroke-width', 1);
           
-          // Remove tooltip
-          d3.select("body").selectAll(".tooltip").remove();
-        });
+//           // Remove tooltip
+//           d3.select("body").selectAll(".tooltip").remove();
+//         });
       
-      // Add nodes with enhanced styling
-      const node = svg.append('g')
-        .selectAll('.node')
-        .data(graph.nodes)
-        .enter()
-        .append('g')
-        .attr('class', 'node')
-        .attr('transform', d => `translate(${d.x0},${d.y0})`);
+//       // Add nodes with enhanced styling
+//       const node = svg.append('g')
+//         .selectAll('.node')
+//         .data(graph.nodes)
+//         .enter()
+//         .append('g')
+//         .attr('class', 'node')
+//         .attr('transform', d => `translate(${d.x0},${d.y0})`);
       
-      // Add rectangles for nodes with improved styling
-      node.append('rect')
-        .attr('height', d => Math.max(d.y1 - d.y0, 10))
-        .attr('width', d => d.x1 - d.x0)
-        .attr('fill', d => getNodeColor(d))
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 1)
-        .attr('rx', 4) // Rounded corners
-        .attr('ry', 4)
-        .style('filter', 'drop-shadow(0px 3px 3px rgba(0,0,0,0.2))')
-        .on('mouseover', function(event, d) {
-          // Highlight connected links
-          link.style('stroke-opacity', l => 
-            l.source === d || l.target === d ? 1 : 0.1
-          );
+//       // Add rectangles for nodes with improved styling
+//       node.append('rect')
+//         .attr('height', d => Math.max(d.y1 - d.y0, 10))
+//         .attr('width', d => d.x1 - d.x0)
+//         .attr('fill', d => getNodeColor(d))
+//         .attr('stroke', '#fff')
+//         .attr('stroke-width', 1)
+//         .attr('rx', 4) // Rounded corners
+//         .attr('ry', 4)
+//         .style('filter', 'drop-shadow(0px 3px 3px rgba(0,0,0,0.2))')
+//         .on('mouseover', function(event, d) {
+//           // Highlight connected links
+//           link.style('stroke-opacity', l => 
+//             l.source === d || l.target === d ? 1 : 0.1
+//           );
           
-          // Increase stroke width for connected links
-          link.style('stroke-width', l => 
-            l.source === d || l.target === d ? 
-            Math.max(1, l.width + 2) : Math.max(1, l.width)
-          );
+//           // Increase stroke width for connected links
+//           link.style('stroke-width', l => 
+//             l.source === d || l.target === d ? 
+//             Math.max(1, l.width + 2) : Math.max(1, l.width)
+//           );
           
-          // Highlight this node
-          d3.select(this)
-            .style('stroke', '#000')
-            .style('stroke-width', 2);
+//           // Highlight this node
+//           d3.select(this)
+//             .style('stroke', '#000')
+//             .style('stroke-width', 2);
           
-          // Show tooltip with node details
-          const tooltip = d3.select("body").append("div")
-            .attr("class", "tooltip")
-            .style("display", "block")
-            .style("position", "absolute")
-            .style("background", "rgba(0,0,0,0.8)")
-            .style("color", "white")
-            .style("padding", "10px")
-            .style("border-radius", "5px")
-            .style("font-size", "12px")
-            .style("pointer-events", "none")
-            .style("z-index", 1000)
-            .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
+//           // Show tooltip with node details
+//           const tooltip = d3.select("body").append("div")
+//             .attr("class", "tooltip")
+//             .style("display", "block")
+//             .style("position", "absolute")
+//             .style("background", "rgba(0,0,0,0.8)")
+//             .style("color", "white")
+//             .style("padding", "10px")
+//             .style("border-radius", "5px")
+//             .style("font-size", "12px")
+//             .style("pointer-events", "none")
+//             .style("z-index", 1000)
+//             .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
           
-          let tooltipContent = `<strong>${d.name}</strong><br>Total: ${d.value.toLocaleString()} units`;
+//           let tooltipContent = `<strong>${d.name}</strong><br>Total: ${d.value.toLocaleString()} units`;
           
-          // If it's a borough, show outgoing flows
-          if (boroughColors[d.name]) {
-            tooltipContent += '<br><br>Distribution:';
-            d.sourceLinks.forEach(link => {
-              tooltipContent += `<br>${link.target.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
-            });
-          } 
-          // If it's an income category, show incoming flows
-          else if (incomeColors[d.name]) {
-            tooltipContent += '<br><br>Sources:';
-            d.targetLinks.forEach(link => {
-              tooltipContent += `<br>${link.source.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
-            });
-          }
+//           // If it's a borough, show outgoing flows
+//           if (boroughColors[d.name]) {
+//             tooltipContent += '<br><br>Distribution:';
+//             d.sourceLinks.forEach(link => {
+//               tooltipContent += `<br>${link.target.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
+//             });
+//           } 
+//           // If it's an income category, show incoming flows
+//           else if (incomeColors[d.name]) {
+//             tooltipContent += '<br><br>Sources:';
+//             d.targetLinks.forEach(link => {
+//               tooltipContent += `<br>${link.source.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
+//             });
+//           }
           
-          tooltip.html(tooltipContent)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 20) + 'px');
-        })
-        .on('mouseout', function() {
-          // Reset link opacity
-          link.style('stroke-opacity', 0.7)
-            .style('stroke-width', d => Math.max(1, d.width));
+//           tooltip.html(tooltipContent)
+//             .style('left', (event.pageX + 10) + 'px')
+//             .style('top', (event.pageY - 20) + 'px');
+//         })
+//         .on('mouseout', function() {
+//           // Reset link opacity
+//           link.style('stroke-opacity', 0.7)
+//             .style('stroke-width', d => Math.max(1, d.width));
           
-          // Reset node stroke
-          d3.select(this)
-            .style('stroke', '#fff')
-            .style('stroke-width', 1);
+//           // Reset node stroke
+//           d3.select(this)
+//             .style('stroke', '#fff')
+//             .style('stroke-width', 1);
           
-          // Remove tooltip
-          d3.select("body").selectAll(".tooltip").remove();
-        });
+//           // Remove tooltip
+//           d3.select("body").selectAll(".tooltip").remove();
+//         });
       
-      // Add labels with improved styling
-      node.append('text')
-        .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
-        .attr('y', d => (d.y1 - d.y0) / 2)
-        .attr('dy', '0.35em')
-        .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
-        .text(d => d.name)
-        .style('font-size', '12px')
-        .style('font-family', "'Poppins', sans-serif")
-        .style('font-weight', 'bold')
-        .style('pointer-events', 'none')
-        .style('fill', d => {
-          // Use white text for dark backgrounds, black for light
-          const color = d3.color(getNodeColor(d));
-          return color.l < 0.5 ? '#fff' : '#000';
-        });
+//       // Add labels with improved styling
+//       node.append('text')
+//         .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
+//         .attr('y', d => (d.y1 - d.y0) / 2)
+//         .attr('dy', '0.35em')
+//         .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
+//         .text(d => d.name)
+//         .style('font-size', '12px')
+//         .style('font-family', "'Poppins', sans-serif")
+//         .style('font-weight', 'bold')
+//         .style('pointer-events', 'none')
+//         .style('fill', d => {
+//           // Use white text for dark backgrounds, black for light
+//           const color = d3.color(getNodeColor(d));
+//           return color.l < 0.5 ? '#fff' : '#000';
+//         });
       
-      // Add value labels with improved styling
-      node.append('text')
-        .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
-        .attr('y', d => (d.y1 - d.y0) / 2 + 14)
-        .attr('dy', '0.35em')
-        .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
-        .text(d => `${d.value.toLocaleString()} units`)
-        .style('font-size', '10px')
-        .style('font-family', "'Poppins', sans-serif")
-        .style('pointer-events', 'none')
-        .style('fill', d => {
-          const color = d3.color(getNodeColor(d));
-          return color.l < 0.5 ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)';
-        });
+//       // Add value labels with improved styling
+//       node.append('text')
+//         .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
+//         .attr('y', d => (d.y1 - d.y0) / 2 + 14)
+//         .attr('dy', '0.35em')
+//         .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
+//         .text(d => `${d.value.toLocaleString()} units`)
+//         .style('font-size', '10px')
+//         .style('font-family', "'Poppins', sans-serif")
+//         .style('pointer-events', 'none')
+//         .style('fill', d => {
+//           const color = d3.color(getNodeColor(d));
+//           return color.l < 0.5 ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)';
+//         });
       
      
-    })
-    .catch(error => {
-      console.error('Error loading Sankey diagram:', error);
-      d3.select('#sankey-diagram').html(`
-        <div style="text-align: center; padding: 20px; color: #d63031; background: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3>Error Loading Diagram</h3>
-          <p>${error.message}</p>
-          <button onclick="loadSankeyPlot()" style="background: #0984e3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px;">
-            Retry
-          </button>
-        </div>
-      `);
-    });
-}
+//     })
+//     .catch(error => {
+//       console.error('Error loading Sankey diagram:', error);
+//       d3.select('#sankey-diagram').html(`
+//         <div style="text-align: center; padding: 20px; color: #d63031; background: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+//           <h3>Error Loading Diagram</h3>
+//           <p>${error.message}</p>
+//           <button onclick="loadSankeyPlot()" style="background: #0984e3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px;">
+//             Retry
+//           </button>
+//         </div>
+//       `);
+//     });
+// }
+
+function loadSankeyPlot() {
+    fetch('http://localhost:5001/sankey_data')
+      .then(response => response.json())
+      .then(data => {
+        if (!data.nodes || !data.links) throw new Error('Invalid Sankey data format');
+        
+        // Set up dimensions
+        const margin = {top: 30, right: 150, bottom: 20, left: 150};
+        const width = document.getElementById('sankey-diagram').clientWidth - margin.left - margin.right;
+        const height = document.getElementById('sankey-diagram').clientHeight - margin.top - margin.bottom;
+        
+        // Clear previous chart
+        d3.select('#sankey-diagram').html('');
+        
+        // Create SVG with a light background
+        const svg = d3.select('#sankey-diagram')
+          .append('svg')
+          .attr('width', width + margin.left + margin.right)
+          .attr('height', height + margin.top + margin.bottom)
+          .append('g')
+          .attr('transform', `translate(${margin.left},${margin.top})`);
+        
+        // Create Sankey generator
+        const sankey = d3.sankey()
+          .nodeWidth(25)
+          .nodePadding(15)
+          .extent([[1, 1], [width - 1, height - 5]]);
+        
+        // Format the data for the Sankey layout
+        const graph = sankey({
+          nodes: data.nodes.map(d => Object.assign({}, d)),
+          links: data.links.map(d => Object.assign({}, d))
+        });
+        
+        // Extract borough names and income categories from nodes
+        const boroughs = data.nodes
+          .filter(n => !n.name.includes('Units'))
+          .map(n => n.name);
+        
+        const incomeCategories = data.nodes
+          .filter(n => n.name.includes('Units'))
+          .map(n => n.name);
+        
+        // Create vibrant color scales for nodes
+        const boroughColors = {
+          'Bronx': '#FF6B6B',
+          'Brooklyn': '#4ECDC4',
+          'Manhattan': '#45B7D1',
+          'Queens': '#FFA62B',
+          'Staten Island': '#845EC2'
+        };
+        
+        const incomeColors = {
+          'Extremely Low Income Units': '#1E3A8A',
+          'Very Low Income Units': '#1E40AF',
+          'Low Income Units': '#2563EB',
+          'Moderate Income Units': '#3B82F6',
+          'Middle Income Units': '#60A5FA',
+          'Other Income Units': '#93C5FD'
+        };
+        
+        // Function to get node color
+        function getNodeColor(node) {
+          if (boroughColors[node.name]) {
+            return boroughColors[node.name];
+          } else if (incomeColors[node.name]) {
+            return incomeColors[node.name];
+          }
+          return '#888888'; // Default color
+        }
+        
+        // Create gradient definitions for links
+        const defs = svg.append('defs');
+        
+        // Create gradients for each link
+        graph.links.forEach((link, i) => {
+          const gradientId = `link-gradient-${i}`;
+          const gradient = defs.append('linearGradient')
+            .attr('id', gradientId)
+            .attr('gradientUnits', 'userSpaceOnUse')
+            .attr('x1', link.source.x1)
+            .attr('x2', link.target.x0);
+          
+          // Start color (source node color)
+          gradient.append('stop')
+            .attr('offset', '0%')
+            .attr('stop-color', getNodeColor(link.source))
+            .attr('stop-opacity', 0.8);
+          
+          // End color (target node color)
+          gradient.append('stop')
+            .attr('offset', '100%')
+            .attr('stop-color', getNodeColor(link.target))
+            .attr('stop-opacity', 0.8);
+        });
+        
+        // Add links with gradients and improved styling
+        const link = svg.append('g')
+          .selectAll('.link')
+          .data(graph.links)
+          .enter()
+          .append('path')
+          .attr('class', 'link')
+          .attr('d', d3.sankeyLinkHorizontal())
+          .attr('stroke-width', d => Math.max(1, d.width))
+          .attr('stroke', (d, i) => `url(#link-gradient-${i})`)
+          .style('fill', 'none')
+          .style('stroke-opacity', 0.7)
+          .on('mouseover', function(event, d) {
+            // Highlight this link
+            d3.select(this)
+              .style('stroke-opacity', 1)
+              .attr('stroke-width', d => Math.max(1, d.width + 2));
+            
+            // Highlight connected nodes
+            node.filter(n => n === d.source || n === d.target)
+              .style('stroke', '#000')
+              .style('stroke-width', 2);
+            
+            // Show tooltip
+            const tooltip = d3.select("body").append("div")
+              .attr("class", "tooltip")
+              .style("display", "block")
+              .style("position", "absolute")
+              .style("background", "rgba(0,0,0,0.8)")
+              .style("color", "white")
+              .style("padding", "10px")
+              .style("border-radius", "5px")
+              .style("font-size", "12px")
+              .style("pointer-events", "none")
+              .style("z-index", 1000)
+              .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
+            
+            tooltip.html(`
+              <strong>${d.source.name} → ${d.target.name}</strong><br>
+              ${d.value.toLocaleString()} units (${(d.value / d.source.value * 100).toFixed(1)}%)
+            `)
+              .style('left', (event.pageX + 10) + 'px')
+              .style('top', (event.pageY - 20) + 'px');
+          })
+          .on('mouseout', function() {
+            // Reset styles
+            d3.select(this)
+              .style('stroke-opacity', 0.7)
+              .attr('stroke-width', d => Math.max(1, d.width));
+            
+            // Reset node highlighting
+            node.style('stroke', '#fff')
+              .style('stroke-width', 1);
+            
+            // Remove tooltip
+            d3.select("body").selectAll(".tooltip").remove();
+          });
+        
+        // Add nodes with enhanced styling
+        const node = svg.append('g')
+          .selectAll('.node')
+          .data(graph.nodes)
+          .enter()
+          .append('g')
+          .attr('class', 'node')
+          .attr('transform', d => `translate(${d.x0},${d.y0})`);
+        
+        // Add rectangles for nodes with improved styling
+        node.append('rect')
+          .attr('height', d => Math.max(d.y1 - d.y0, 10))
+          .attr('width', d => d.x1 - d.x0)
+          .attr('fill', d => getNodeColor(d))
+          .attr('stroke', '#fff')
+          .attr('stroke-width', 1)
+          .attr('rx', 4) // Rounded corners
+          .attr('ry', 4)
+          .style('filter', 'drop-shadow(0px 3px 3px rgba(0,0,0,0.2))')
+          .on('mouseover', function(event, d) {
+            // Highlight connected links
+            link.style('stroke-opacity', l => 
+              l.source === d || l.target === d ? 1 : 0.1
+            );
+            
+            // Increase stroke width for connected links
+            link.style('stroke-width', l => 
+              l.source === d || l.target === d ? 
+              Math.max(1, l.width + 2) : Math.max(1, l.width)
+            );
+            
+            // Highlight this node
+            d3.select(this)
+              .style('stroke', '#000')
+              .style('stroke-width', 2);
+            
+            // Show tooltip with node details
+            const tooltip = d3.select("body").append("div")
+              .attr("class", "tooltip")
+              .style("display", "block")
+              .style("position", "absolute")
+              .style("background", "rgba(0,0,0,0.8)")
+              .style("color", "white")
+              .style("padding", "10px")
+              .style("border-radius", "5px")
+              .style("font-size", "12px")
+              .style("pointer-events", "none")
+              .style("z-index", 1000)
+              .style("box-shadow", "0 4px 8px rgba(0,0,0,0.2)");
+            
+            let tooltipContent = `<strong>${d.name}</strong><br>Total: ${d.value.toLocaleString()} units`;
+            
+            // If it's a borough, show outgoing flows
+            if (boroughColors[d.name]) {
+              tooltipContent += '<br><br>Distribution:';
+              d.sourceLinks.forEach(link => {
+                tooltipContent += `<br>${link.target.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
+              });
+            } 
+            // If it's an income category, show incoming flows
+            else if (incomeColors[d.name]) {
+              tooltipContent += '<br><br>Sources:';
+              d.targetLinks.forEach(link => {
+                tooltipContent += `<br>${link.source.name}: ${link.value.toLocaleString()} (${(link.value / d.value * 100).toFixed(1)}%)`;
+              });
+            }
+            
+            tooltip.html(tooltipContent)
+              .style('left', (event.pageX + 10) + 'px')
+              .style('top', (event.pageY - 20) + 'px');
+          })
+          .on('mouseout', function() {
+            // Reset link opacity
+            link.style('stroke-opacity', 0.7)
+              .style('stroke-width', d => Math.max(1, d.width));
+            
+            // Reset node stroke
+            d3.select(this)
+              .style('stroke', '#fff')
+              .style('stroke-width', 1);
+            
+            // Remove tooltip
+            d3.select("body").selectAll(".tooltip").remove();
+          });
+        
+        // Add labels with improved styling
+        node.append('text')
+          .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
+          .attr('y', d => (d.y1 - d.y0) / 2)
+          .attr('dy', '0.35em')
+          .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
+          .text(d => d.name)
+          .style('font-size', '12px')
+          .style('font-family', "'Poppins', sans-serif")
+          .style('font-weight', 'bold')
+          .style('pointer-events', 'none')
+          .style('fill', d => {
+            // Use white text for dark backgrounds, black for light
+            const color = d3.color(getNodeColor(d));
+            return color.l < 0.5 ? '#fff' : '#000';
+          });
+        
+        // Add value labels with improved styling
+        node.append('text')
+          .attr('x', d => d.x0 < width / 2 ? -8 : d.x1 - d.x0 + 8)
+          .attr('y', d => (d.y1 - d.y0) / 2 + 14)
+          .attr('dy', '0.35em')
+          .attr('text-anchor', d => d.x0 < width / 2 ? 'end' : 'start')
+          .text(d => `${d.value.toLocaleString()} units`)
+          .style('font-size', '10px')
+          .style('font-family', "'Poppins', sans-serif")
+          .style('pointer-events', 'none')
+          .style('fill', d => {
+            const color = d3.color(getNodeColor(d));
+            return color.l < 0.5 ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)';
+          });
+        
+        // Add a title to the diagram
+        svg.append('text')
+          .attr('x', width / 2)
+          .attr('y', -10)
+          .attr('text-anchor', 'middle')
+          .style('font-size', '16px')
+          .style('font-weight', 'bold')
+          .style('font-family', "'Poppins', sans-serif")
+      })
+      .catch(error => {
+        console.error('Error loading Sankey diagram:', error);
+        d3.select('#sankey-diagram').html(`
+          <div style="text-align: center; padding: 20px; color: #d63031; background: #f8f9fa; border-radius: 8px);">
+            <h3>Error Loading Diagram</h3>
+            <p>${error.message}</p>
+            <button onclick="loadSankeyPlot()" style="background: #0984e3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px;">
+              Retry
+            </button>
+          </div>
+        `);
+      });
+  }
 
 // Call the function when the page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -2100,442 +2163,4 @@ function plotRadar() {
     })
     .catch(error => console.error("Error in Radar Plot:", error));
 }
-
-// Add this to script.js
-
-// Load treemap visualization
-// function loadTreemap() {
-//   fetch(`${API_BASE_URL}/treemap_data`)
-//       .then(response => response.json())
-//       .then(data => {
-//           if (!Array.isArray(data)) throw new Error('Invalid data format');
-          
-//           // Clear previous treemap
-//           d3.select('#treemap').html('');
-          
-//           // Set up dimensions
-//           const width = document.getElementById('treemap-container').clientWidth;
-//           const height = document.getElementById('treemap-container').clientHeight - 20;
-          
-//           // Create SVG
-//           const svg = d3.select('#treemap')
-//               .append('svg')
-//               .attr('width', width)
-//               .attr('height', height);
-          
-//           // Create tooltip
-//           const tooltip = d3.select('#treemap-tooltip');
-          
-//           // Create hierarchical data structure
-//           const root = d3.hierarchy({ children: data })
-//               .sum(d => d.value)
-//               .sort((a, b) => b.value - a.value);
-          
-//           // Create treemap layout
-//           const treemapLayout = d3.treemap()
-//               .size([width, height])
-//               .paddingOuter(3)
-//               .paddingTop(20)
-//               .paddingInner(1)
-//               .round(true);
-          
-//           // Apply layout
-//           treemapLayout(root);
-          
-//           // Color scale for boroughs
-//           const boroughColorScale = d3.scaleOrdinal()
-//               .domain(['Bronx', 'Brooklyn', 'Manhattan', 'Queens', 'Staten Island'])
-//               .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']);
-          
-//           // Color scale for construction types
-//           const constructionColorScale = d3.scaleOrdinal()
-//               .domain(['New Construction', 'Preservation'])
-//               .range(['#8c564b', '#e377c2']);
-          
-//           // Get current color scheme
-//           const colorBy = document.getElementById('treemap-color').value;
-          
-//           // Create cells for boroughs
-//           const boroughCells = svg.selectAll('g.borough')
-//               .data(root.children)
-//               .enter()
-//               .append('g')
-//               .attr('class', 'borough')
-//               .attr('transform', d => `translate(${d.x0},${d.y0})`);
-          
-//           // Add borough rectangles
-//           boroughCells.append('rect')
-//               .attr('width', d => d.x1 - d.x0)
-//               .attr('height', d => d.y1 - d.y0)
-//               .attr('fill', 'none')
-//               .attr('stroke', '#000')
-//               .attr('stroke-width', 2);
-          
-//           // Add borough labels
-//           boroughCells.append('text')
-//               .attr('x', 5)
-//               .attr('y', 15)
-//               .attr('font-weight', 'bold')
-//               .text(d => `${d.data.name} (${d.data.percentage}%)`);
-          
-//           // Create cells for construction types
-//           const constructionCells = svg.selectAll('g.construction')
-//               .data(root.leaves())
-//               .enter()
-//               .append('g')
-//               .attr('class', 'construction')
-//               .attr('transform', d => `translate(${d.x0},${d.y0})`);
-          
-//           // Add construction type rectangles
-//           constructionCells.append('rect')
-//               .attr('width', d => Math.max(0, d.x1 - d.x0))
-//               .attr('height', d => Math.max(0, d.y1 - d.y0))
-//               .attr('fill', d => {
-//                   if (colorBy === 'borough') {
-//                       return boroughColorScale(d.parent.data.name);
-//                   } else {
-//                       return constructionColorScale(d.data.name);
-//                   }
-//               })
-//               .attr('opacity', 0.8)
-//               .attr('stroke', '#fff')
-//               .attr('class', d => {
-//                   const boroughClass = `borough-${d.parent.data.name.replace(/\s+/g, '.')}`;
-//                   const constructionClass = `construction-${d.data.name.replace(/\s+/g, '.')}`;
-//                   return `${boroughClass} ${constructionClass}`;
-//               })
-//               .on('mouseover', function(event, d) {
-//                   // Calculate total income units
-//                   const incomeData = d.data.incomeBreakdown;
-//                   const totalIncomeUnits = Object.values(incomeData).reduce((a, b) => a + b, 0);
-                  
-//                   // Create income breakdown HTML
-//                   let incomeBreakdownHTML = '';
-//                   if (totalIncomeUnits > 0) {
-//                       incomeBreakdownHTML = `
-//                           <div class="income-breakdown">
-//                               <h5>Income Level Distribution:</h5>
-//                               <div class="income-bar">
-//                                   ${Object.entries(incomeData).map(([level, units]) => {
-//                                       const percentage = totalIncomeUnits > 0 ? (units / totalIncomeUnits) * 100 : 0;
-//                                       const color = {
-//                                           'Extremely Low': '#1f77b4',
-//                                           'Very Low': '#ff7f0e',
-//                                           'Low': '#2ca02c',
-//                                           'Moderate': '#d62728',
-//                                           'Middle': '#9467bd',
-//                                           'Other': '#8c564b'
-//                                       }[level];
-//                                       return `<div style="width: ${percentage}%; background-color: ${color};" title="${level}: ${units} units (${percentage.toFixed(1)}%)"></div>`;
-//                                   }).join('')}
-//                               </div>
-//                               <div class="income-bar-label">
-//                                   <span>Extremely Low</span>
-//                                   <span>Middle</span>
-//                               </div>
-//                           </div>
-//                       `;
-//                   }
-                  
-//                   // Show tooltip
-//                   tooltip.style('display', 'block')
-//                       .html(`
-//                           <h4>${d.parent.data.name} - ${d.data.name}</h4>
-//                           <p><strong>Total Units:</strong> ${d.data.value.toLocaleString()}</p>
-//                           <p><strong>Percentage of ${d.parent.data.name}:</strong> ${d.data.percentage}%</p>
-//                           <p><strong>Percentage of All Housing:</strong> ${((d.data.value / root.value) * 100).toFixed(2)}%</p>
-//                           ${incomeBreakdownHTML}
-//                       `)
-//                       .style('left', (event.pageX + 10) + 'px')
-//                       .style('top', (event.pageY - 28) + 'px');
-                  
-//                   // Highlight current cell
-//                   d3.select(this)
-//                       .attr('stroke', '#000')
-//                       .attr('stroke-width', 2)
-//                       .attr('opacity', 1);
-//               })
-//               .on('mouseout', function() {
-//                   // Hide tooltip
-//                   tooltip.style('display', 'none');
-                  
-//                   // Remove highlight
-//                   d3.select(this)
-//                       .attr('stroke', '#fff')
-//                       .attr('stroke-width', 1)
-//                       .attr('opacity', 0.8);
-//               });
-          
-//           // Add construction type labels (only for cells big enough)
-//           constructionCells.append('text')
-//               .attr('x', 3)
-//               .attr('y', 13)
-//               .attr('font-size', '10px')
-//               .text(d => {
-//                   const width = d.x1 - d.x0;
-//                   const height = d.y1 - d.y0;
-//                   // Only show text if the cell is big enough
-//                   if (width > 50 && height > 20) {
-//                       return d.data.name;
-//                   }
-//                   return '';
-//               });
-          
-//           // Add event listener for color scheme change
-//           document.getElementById('treemap-color').addEventListener('change', function() {
-//               const newColorBy = this.value;
-              
-//               // Update rectangle colors
-//               svg.selectAll('rect')
-//                   .transition()
-//                   .duration(500)
-//                   .attr('fill', function(d) {
-//                       if (!d.parent) return 'none'; // Skip the root node
-                      
-//                       if (newColorBy === 'borough') {
-//                           return boroughColorScale(d.parent.data.name);
-//                       } else {
-//                           return constructionColorScale(d.data.name);
-//                       }
-//                   });
-//           });
-//       })
-//       .catch(error => {
-//           console.error('Error loading treemap:', error);
-//           d3.select('#treemap').html(`<div class="error-message">Error loading treemap: ${error.message}</div>`);
-//       });
-// }
-
-// Add treemap to loadAllVisualizations function
-
-// Add this to script.js
-
-// // Load treemap visualization
-// function loadTreemap() {
-//   // Clear previous treemap
-//   d3.select('#treemap').html('');
-  
-//   fetch(`${API_BASE_URL}/treemap_data`)
-//       .then(response => response.json())
-//       .then(data => {
-//           if (!Array.isArray(data)) {
-//               throw new Error('Invalid data format');
-//           }
-          
-//           console.log("Treemap data:", data); // Debug: Check data structure
-          
-//           // Set up dimensions
-//           const container = document.getElementById('treemap-container');
-//           const width = container.clientWidth;
-//           const height = container.clientHeight - 20;
-          
-//           console.log("Container dimensions:", width, height); // Debug: Check dimensions
-          
-//           // Create SVG
-//           const svg = d3.select('#treemap')
-//               .append('svg')
-//               .attr('width', width)
-//               .attr('height', height)
-//               .attr('viewBox', `0 0 ${width} ${height}`)
-//               .style('font', '10px sans-serif');
-          
-//           // Create tooltip
-//           const tooltip = d3.select('#treemap-tooltip');
-          
-//           // Create hierarchical data structure
-//           const hierarchy = {
-//               name: "All Boroughs",
-//               children: data
-//           };
-          
-//           const root = d3.hierarchy(hierarchy)
-//               .sum(d => d.value)
-//               .sort((a, b) => b.value - a.value);
-          
-//           console.log("Hierarchy root:", root); // Debug: Check hierarchy
-          
-//           // Create treemap layout
-//           const treemap = d3.treemap()
-//               .size([width, height])
-//               .paddingOuter(3)
-//               .paddingTop(20)
-//               .paddingInner(2)
-//               .round(true);
-          
-//           // Apply layout
-//           treemap(root);
-          
-//           console.log("Treemap layout applied:", root); // Debug: Check layout
-          
-//           // Color scales
-//           const boroughColorScale = d3.scaleOrdinal()
-//               .domain(['Bronx', 'Brooklyn', 'Manhattan', 'Queens', 'Staten Island'])
-//               .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']);
-          
-//           const constructionColorScale = d3.scaleOrdinal()
-//               .domain(['New Construction', 'Preservation'])
-//               .range(['#8c564b', '#e377c2']);
-          
-//           // Get current color scheme
-//           const colorBy = document.getElementById('treemap-color').value;
-          
-//           // Create cell groups
-//           const node = svg.selectAll("g")
-//               .data(root.descendants().filter(d => d.depth > 0)) // Skip root node
-//               .join("g")
-//               .attr("transform", d => `translate(${d.x0},${d.y0})`);
-          
-//           // Add rectangles
-//           node.append("rect")
-//               .attr("width", d => Math.max(0, d.x1 - d.x0))
-//               .attr("height", d => Math.max(0, d.y1 - d.y0))
-//               .attr("fill", d => {
-//                   if (d.depth === 1) {
-//                       return boroughColorScale(d.data.name);
-//                   } else if (colorBy === 'borough') {
-//                       return boroughColorScale(d.parent.data.name);
-//                   } else {
-//                       return constructionColorScale(d.data.name);
-//                   }
-//               })
-//               .attr("opacity", d => d.depth === 1 ? 0.7 : 0.9)
-//               .attr("stroke", "#fff")
-//               .attr("stroke-width", 1)
-//               .attr("class", d => {
-//                   if (d.depth === 1) {
-//                       return `borough-${d.data.name.replace(/\s+/g, '.')}`;
-//                   } else {
-//                       const boroughClass = `borough-${d.parent.data.name.replace(/\s+/g, '.')}`;
-//                       const constructionClass = `construction-${d.data.name.replace(/\s+/g, '.')}`;
-//                       return `${boroughClass} ${constructionClass}`;
-//                   }
-//               })
-//               .on("mouseover", function(event, d) {
-//                   d3.select(this)
-//                       .attr("stroke", "#000")
-//                       .attr("stroke-width", 2)
-//                       .attr("opacity", 1);
-                  
-//                   let tooltipContent = '';
-                  
-//                   if (d.depth === 1) {
-//                       // Borough level
-//                       tooltipContent = `
-//                           <h4>${d.data.name}</h4>
-//                           <p><strong>Total Units:</strong> ${d.value.toLocaleString()}</p>
-//                           <p><strong>Percentage of All Housing:</strong> ${d.data.percentage}%</p>
-//                       `;
-//                   } else {
-//                       // Construction type level
-//                       const incomeData = d.data.incomeBreakdown;
-//                       const totalIncomeUnits = Object.values(incomeData).reduce((a, b) => a + b, 0);
-                      
-//                       // Create income breakdown HTML
-//                       let incomeBreakdownHTML = '';
-//                       if (totalIncomeUnits > 0) {
-//                           incomeBreakdownHTML = `
-//                               <div class="income-breakdown">
-//                                   <h5>Income Level Distribution:</h5>
-//                                   <div class="income-bar">
-//                                       ${Object.entries(incomeData).map(([level, units]) => {
-//                                           const percentage = totalIncomeUnits > 0 ? (units / totalIncomeUnits) * 100 : 0;
-//                                           const color = {
-//                                               'Extremely Low': '#1f77b4',
-//                                               'Very Low': '#ff7f0e',
-//                                               'Low': '#2ca02c',
-//                                               'Moderate': '#d62728',
-//                                               'Middle': '#9467bd',
-//                                               'Other': '#8c564b'
-//                                           }[level];
-//                                           return `<div style="width: ${percentage}%; background-color: ${color};" title="${level}: ${units} units (${percentage.toFixed(1)}%)"></div>`;
-//                                       }).join('')}
-//                                   </div>
-//                                   <div class="income-bar-label">
-//                                       <span>Extremely Low</span>
-//                                       <span>Middle</span>
-//                                   </div>
-//                               </div>
-//                           `;
-//                       }
-                      
-//                       tooltipContent = `
-//                           <h4>${d.parent.data.name} - ${d.data.name}</h4>
-//                           <p><strong>Total Units:</strong> ${d.value.toLocaleString()}</p>
-//                           <p><strong>Percentage of ${d.parent.data.name}:</strong> ${d.data.percentage}%</p>
-//                           <p><strong>Percentage of All Housing:</strong> ${((d.value / root.value) * 100).toFixed(2)}%</p>
-//                           ${incomeBreakdownHTML}
-//                       `;
-//                   }
-                  
-//                   tooltip.style('display', 'block')
-//                       .html(tooltipContent)
-//                       .style('left', (event.pageX + 10) + 'px')
-//                       .style('top', (event.pageY - 28) + 'px');
-//               })
-//               .on("mouseout", function() {
-//                   d3.select(this)
-//                       .attr("stroke", "#fff")
-//                       .attr("stroke-width", 1)
-//                       .attr("opacity", d => d.depth === 1 ? 0.7 : 0.9);
-                  
-//                   tooltip.style('display', 'none');
-//               });
-          
-//           // Add labels
-//           node.append("text")
-//               .attr("x", 4)
-//               .attr("y", 14)
-//               .attr("fill", d => d.depth === 1 ? "#fff" : "#000")
-//               .attr("font-weight", d => d.depth === 1 ? "bold" : "normal")
-//               .attr("font-size", d => d.depth === 1 ? "12px" : "10px")
-//               .text(d => {
-//                   const width = d.x1 - d.x0;
-//                   const height = d.y1 - d.y0;
-                  
-//                   // Only show text if the cell is big enough
-//                   if (width > 60 && height > 14) {
-//                       if (d.depth === 1) {
-//                           return `${d.data.name} (${d.data.percentage}%)`;
-//                       } else if (width > 100 && height > 20) {
-//                           return `${d.data.name} (${d.data.percentage}%)`;
-//                       } else {
-//                           return d.data.name;
-//                       }
-//                   }
-//                   return '';
-//               });
-          
-//           // Add event listener for color scheme change
-//           document.getElementById('treemap-color').addEventListener('change', function() {
-//               const newColorBy = this.value;
-              
-//               // Update rectangle colors
-//               svg.selectAll('rect')
-//                   .transition()
-//                   .duration(500)
-//                   .attr('fill', function(d) {
-//                       if (d.depth === 1) {
-//                           return boroughColorScale(d.data.name);
-//                       } else if (newColorBy === 'borough') {
-//                           return boroughColorScale(d.parent.data.name);
-//                       } else {
-//                           return constructionColorScale(d.data.name);
-//                       }
-//                   });
-//           });
-//       })
-//       .catch(error => {
-//           console.error('Error loading treemap:', error);
-//           d3.select('#treemap').html(`<div class="error-message">Error loading treemap: ${error.message}</div>`);
-//       });
-// }
-
-// // Add treemap to loadAllVisualizations function
-// function loadAllVisualizations() {
-
-//   loadTreemap(); // Make sure this is called
-// }
-
-
-
 

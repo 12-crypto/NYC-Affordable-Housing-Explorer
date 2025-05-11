@@ -1,404 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AFFORDABLE NEW YORK HOUSING DATA VISUALIZATION</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-</head>
-<body>
-    <div class="menu">
-        <div class="menu-container">
-            <button onclick="scrollToSection('scree-plot-section')">Scree Plot</button>
-            <button onclick="scrollToSection('pca-attributes-section')">PCA Attributes</button>
-            <button onclick="scrollToSection('scatterplot-matrix-section')">Scatterplot Matrix</button>
-            <button onclick="scrollToSection('biplot-section')">Biplot</button>
-            <button onclick="scrollToSection('dataMDS')">MDS Plot</button>
-            <button onclick="scrollToSection('pcp')">Parallel Coordinate Plot</button>
-            <button onclick="scrollToSection('pcp-full')">Full PCP</button>
-
-           
-        </div>
-    </div>
-
-    <div class="container">
-        <h1>New York Affordable Housing Production Visualization </h1>
-        <h2>Aim:</h2>
-        <p>The goal of this project is to create visualizations for a dataset using the D3 library. It includes different types of plots, such as Multidimensional scaling(MDS) plot, and parallel coordinates plot (PCP). These visualizations follow the requirements given in the Lab-2b assignment for CSE-564 at Stony Brook University.</p>
-    
-        <ul>
-            <li>To create an MDS (Multidimensional Scaling) plot using Euclidean distance, displaying clustered points on a scatterplot, and an MDS variables plot using a distance metric based on 1−|correlation|.</li>
-            <li>To visualize the data using a Parallel Coordinates Plot, accommodating both numerical and categorical variables, with adjustable axis ordering and polylines colored according to cluster IDs.</li>
-            <li>To determine an optimal axis ordering for a Parallel Coordinates Plot (PCP) using correlations from numerical variables, leveraging the relationships observed in the MDS plot. Users can click on points in a desired sequence to arrange the axes accordingly.</li>
-        </ul>
-    
-        <h2>Categorical Attributes:</h2>
-        <ul>
-            <li><strong>Borough:</strong> The borough in New York City where the building is located (e.g., Bronx, Brooklyn, Manhattan, Queens, Staten Island).</li>
-            <li><strong>Community Board:</strong> The community board district where the building is situated.</li>
-            <li><strong>Construction Type:</strong> The type of construction undertaken (e.g., New Construction, Preservation).</li>
-            <li><strong>Extended Affordability Only:</strong> Indicates if the project extends affordability beyond standard terms (Yes/No).</li>
-            <li><strong>Prevailing Wage Status:</strong> Specifies whether prevailing wage standards were applied (Prevailing Wage/Non Prevailing Wage).</li>
-        </ul>
-    
-        <h2>Numerical Attributes:</h2>
-        <ul>
-            <li><strong>Extremely Low Income Units:</strong> Number of units designated for households with extremely low income.</li>
-            <li><strong>Very Low Income Units:</strong> Number of units designated for very low-income residents.</li>
-            <li><strong>Low Income Units:</strong> Number of units designated for low-income residents.</li>
-            <li><strong>Moderate Income Units:</strong> Number of units designated for moderate-income residents.</li>
-            <li><strong>Middle Income Units:</strong> Number of units allocated to middle-income residents.</li>
-            <li><strong>Other Income Units:</strong> Number of units designated for other income categories not specified above.</li>
-            <li><strong>Studio Units:</strong> Number of studio apartment units in the building.</li>
-            <li><strong>1-BR Units:</strong> Number of one-bedroom apartment units in the building.</li>
-            <li><strong>2-BR Units:</strong> Number of two-bedroom apartment units in the building.</li>
-            <li><strong>3-BR Units:</strong> Number of three-bedroom apartment units in the building.</li>
-            <li><strong>4-BR Units:</strong> Number of four-bedroom apartment units available.</li>
-            <li><strong>5-BR Units:</strong> Number of five-bedroom apartment units in the building.</li>
-            <li><strong>6-BR+ Units:</strong> Number of apartment units with six or more bedrooms.</li>
-            <li><strong>Counted Rental Units:</strong> Total number of rental units counted toward affordable housing goals.</li>
-            <li><strong>Counted Homeownership Units:</strong> Total number of homeownership units counted toward affordable housing goals.</li>
-            <li><strong>All Counted Units:</strong> Total number of all counted affordable housing units (rental and homeownership combined).</li>
-            <li><strong>Total Units:</strong> Total number of housing units in the building, including both affordable and non-affordable units.</li>
-            <li><strong> Latitude:</strong> The geographic latitude of the building or location.</li>
-            <li><strong> Longitude:</strong> The geographic longitude of the building or location.</li>
-        </ul>
-
-        <div id="scree-plot-section" class="section">
-            <h2>Scree Plot</h2>
-            <div class="info-box">
-                <p>The scree plot shows the eigenvalues of principal components, helping determine the optimal number of dimensions to retain.</p>
-                <p>Dimensionality index is: <span id="dim-index" class="dim-index">Select Dimensionality Index</span></p>
-            </div>
-            <div id="scree-plot" class="chart-container"></div>
-        </div>
-
-        <div id="elbow-plot-section"class="section">
-            <h2>K-means MSE Plot</h2>
-            <div id="elbow-plot"></div>
-    
-        </div>
-
-        <div id="biplot-section" class="section">
-            <h2>Biplot</h2>
-            <div class="info-box">
-                <p>The biplot shows both the observations and variables in the reduced dimensions space.</p>
-              
-
-            </div>
-            <div id="biplot" class="chart-container"></div>
-        </div>
-
-        <div id="pca-attributes-section" class="section">
-            <h2>Top PCA Attributes</h2>
-            <div class="info-box">
-                <p>Displaying the 4 attributes with the highest squared sum of PCA loadings.</p>
-            </div>
-            <div id="pca-attributes" class="chart-container">
-                <table id="pca-attributes-table">
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Attribute</th>
-                            <th>Squared Sum of Loadings</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="scatterplot-matrix-section" class="section">
-            <h2>Scatterplot Matrix</h2>
-            <div class="info-box">
-                <p>The scatterplot matrix shows relationships between the top features in your dimensionality-reduced space.</p>
-                <p>Current K: <span id="current-k">3</span></p>
-                <button onclick="updateK(currentK - 1)">Decrease K</button>
-                <button onclick="updateK(currentK + 1)">Increase K</button>
-            </div>
-
-            <div id="scatterplot-matrix" class="chart-container"></div>
-        </div>
-
-
-    </div>
-    
-<div class="mds-section">
-    <h2>MDS Plots</h2>
-    <div class="chart-container">
-        <h3>Data MDS Plot (Euclidean Distance)</h3>
-        <svg id="dataMDS" width="800" height="600"></svg>
-    </div>
-    
-    <div class="chart-container">
-        <h3>Variables MDS Plot (1-|correlation| Distance)</h3>
-        <p>Click on variables to select them for PCP ordering</p>
-        <svg id="varMDS" width="800" height="600"></svg>
-        <div id="selected-vars">
-            <h4>Selected Variables (click to apply to PCP):</h4>
-            <div id="selected-vars-list"></div>
-        </div>
-    </div>
-</div>
-
-
-<div class="section">
-    <h2>Parallel Coordinates Plot</h2>
-   
-    <div class="chart-container-pp"><b>Click and Drag the axis to reorder the axis</b>
-        <svg id="pcp" width="1000" height="500"></svg>
-    </div>
-    <div id="pcp-legend" class="cluster-legend-container"></div>
-</div>
-
-<div class="section">
-    <h2>Full Parallel Coordinates Plot</h2>
-    <div class="chart-container-pp"><b>Click and Drag the axis to reorder the axis</b>. Showing all dimensions (categorical and numerical)</h3>
-        <div id="full-pcp-container" style="width: 100%; overflow-x: auto;">
-            <div id="full-pcp"></div>
-        </div>
-    </div>
-    <div id="full-selected-vars"></div>
-    <div id="full-pcp-legend" class="cluster-legend-container"></div>
-</div>
-
-
-    <script src="script.js"></script>
-</body>
-</html> -->
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Affordable Housing Analytics Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <header>
-        <h1>Affordable Housing Analytics Dashboard</h1>
-        <div class="controls">
-            <div class="control-group">
-                <label for="dimension-slider">PCA Dimensions: <span id="dim-value">2</span></label>
-                <input type="range" id="dimension-slider" min="1" max="10" value="2">
-            </div>
-            <div class="control-group">
-                <label for="cluster-slider">Clusters (K): <span id="cluster-value">3</span></label>
-                <input type="range" id="cluster-slider" min="2" max="10" value="3">
-            </div>
-            <button id="reset-btn">Reset Selection</button>
-        </div>
-    </header>
-    
-    <div class="dashboard-container">
-        <div class="row">
-            <div class="card" id="scree-plot-card">
-                <h3>PCA Variance Explained</h3>
-                <div id="scree-plot" class="viz-container"></div>
-            </div>
-            <div class="card" id="biplot-card">
-                <h3>PCA Biplot</h3>
-                <div id="biplot" class="viz-container"></div>
-            </div>
-            <div class="card" id="mds-card">
-                <h3>MDS Clustering</h3>
-                <div id="dataMDS" class="viz-container"></div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="card" id="geo-map-card">
-                <h3>Geographic Distribution</h3>
-                <div id="geo-map" class="viz-container"></div>
-            </div>
-            <div class="card" id="pcp-card">
-                <h3>Parallel Coordinates</h3>
-                <div id="pcp-full" class="viz-container"></div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="card" id="scatterplot-matrix-card">
-                <h3>Scatterplot Matrix</h3>
-                <div id="scatterplot-matrix" class="viz-container"></div>
-            </div>
-            <div class="card" id="bar-chart-card">
-                <h3>Units by Income Level</h3>
-                <div id="bar-chart" class="viz-container"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="tooltip" class="tooltip"></div>
-    
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://d3js.org/d3-geo.v2.min.js"></script>
-    <script src="script.js"></script>
-</body>
-</html> -->
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Affordable Housing Analytics Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header>
-    <h1>Affordable Housing Analytics Dashboard</h1>
-    <div class="controls">
-      <div class="control-group">
-        <label for="dimension-slider">PCA Dimensions: <span id="dim-value">2</span></label>
-        <input type="range" id="dimension-slider" min="1" max="10" value="2">
-      </div>
-      <div class="control-group">
-        <label for="cluster-slider">Clusters (K): <span id="cluster-value">3</span></label>
-        <input type="range" id="cluster-slider" min="2" max="10" value="3">
-      </div>
-      <button id="reset-btn">Reset Selection</button>
-    </div>
-  </header>
-  
-  <div class="dashboard-container">
-    <div class="row">
-      <div class="card" id="scree-plot-card">
-        <h3>PCA Variance Explained</h3>
-        <div id="scree-plot" class="viz-container"></div>
-      </div>
-      <div class="card" id="biplot-card">
-        <h3>PCA Biplot</h3>
-        <div id="biplot" class="viz-container"></div>
-      </div>
-      <div class="card" id="mds-card">
-        <h3>MDS Clustering</h3>
-        <div id="dataMDS" class="viz-container"></div>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div class="card" id="geo-map-card">
-        <h3>Geographic Distribution</h3>
-        <div id="geo-map" class="viz-container"></div>
-      </div>
-      <div class="card" id="pcp-card">
-        <h3>Parallel Coordinates</h3>
-        <div id="pcp-full" class="viz-container"></div>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div class="card" id="scatterplot-matrix-card">
-        <h3>Scatterplot Matrix</h3>
-        <div id="scatterplot-matrix" class="viz-container"></div>
-      </div>
-      <div class="card" id="bar-chart-card">
-        <h3>Units by Income Level</h3>
-        <div id="bar-chart" class="viz-container"></div>
-      </div>
-    </div>
-  </div>
-  
-  <div id="tooltip" class="tooltip"></div>
-  
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://d3js.org/d3-geo.v2.min.js"></script>
-  <script src="script.js"></script>
-</body>
-</html> -->
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Affordable Housing Analytics Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  
-  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
-</head>
-<body>
-  <header>
-    <h1>Affordable Housing Analytics Dashboard</h1>
-    <div class="controls">
-      <div class="control-group">
-        <label for="dimension-slider">PCA Dimensions: <span id="dim-value">2</span></label>
-        <input type="range" id="dimension-slider" min="1" max="10" value="2">
-      </div>
-      <div class="control-group">
-        <label for="cluster-slider">Clusters (K): <span id="cluster-value">3</span></label>
-        <input type="range" id="cluster-slider" min="2" max="10" value="3">
-      </div>
-      <button id="reset-btn">Reset Selection</button>
-    </div>
-  </header>
-  
-  <div class="dashboard-container">
-    <div class="row">
-      <div class="card" id="scree-plot-card">
-        <h3>PCA Variance Explained</h3>
-        <div id="scree-plot" class="viz-container"></div>
-      </div>
-      <div class="card" id="biplot-card">
-        <h3>PCA Biplot</h3>
-        <div id="biplot" class="viz-container"></div>
-      </div>
-      <div class="card" id="mds-card">
-        <h3>MDS Clustering</h3>
-        <div id="dataMDS" class="viz-container"></div>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div class="card" id="geo-map-card">
-        <h3>Geographic Distribution</h3>
-        <div id="geo-map" class="viz-container"></div>
-      </div>
-      <div class="card" id="pcp-card">
-        <h3>Parallel Coordinates</h3>
-        <div id="pcp-full" class="viz-container"></div>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div class="card" id="scatterplot-matrix-card">
-        <h3>Scatterplot Matrix</h3>
-        <div id="scatterplot-matrix" class="viz-container"></div>
-      </div>
-      <div class="card" id="bar-chart-card">
-        <h3>Units by Income Level</h3>
-        <div id="bar-chart" class="viz-container"></div>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div class="card" id="sankey-card">
-        <h3>Sankey Diagram: Borough to Income Flow</h3>
-        <div id="sankey-plot" class="viz-container"></div>
-      </div>
-    </div>
-    
-    
-    <div class="row">
-      <div class="card" id="radar-card">
-        <h3>Radar Plot: Average Profile</h3>
-        <div id="radar-plot" class="viz-container"></div>
-      </div>
-    </div>
-  </div>
-  
-  <div id="tooltip" class="tooltip"></div>
-  
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://d3js.org/d3-geo.v2.min.js"></script>
-  <script src="script.js"></script>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -449,18 +48,32 @@
 
     <div class="dashboard-container">
         <div class="row">
-            <div class="card">
-                <h3>Units by Borough</h3>
-                <div class="viz-container" id="borough-chart"></div>
+          <div class="card">
+            <h3>Units by Borough</h3>
+            <div class="viz-container" id="borough-chart"></div>
+          </div>
+          
+
+          <div class="card">
+            <h3>Pie Chart View</h3>
+            <div style="text-align: center; margin-bottom: 10px;">
+                <button id="toggle-pie-btn">Toggle Chart</button>
             </div>
-            <div class="card">
-                <h3>Construction Type Distribution</h3>
-                <div class="viz-container" id="construction-pie"></div>
-            </div>
-            <div class="card">
-                <h3>Borough Distribution</h3>
-                <div class="viz-container" id="borough-pie"></div>
-            </div>
+            <div class="viz-container" id="combined-pie"></div>
+        </div>
+
+        <!-- <div class="card">
+          <h3>Units by Borough → Income Category</h3>
+          <div class="viz-container" id="stacked-bar"></div>
+        </div> -->
+
+        <div class="card">
+          <h3>Year Selector</h3>
+          <div class="viz-container" id="sunburst-year"></div>
+        </div>
+        
+        
+        
         </div>
         <div class="year-selector-container">
             <h4>Filter by Year</h4>
@@ -478,26 +91,7 @@
         <div class="card wide-card">
           <h3>Geographic Distribution</h3>
           <div class="viz-container tall" id="geo-map"></div>
-          <!-- <div class="map-controls">
-              <div class="control-group">
-                  <label for="map-color-by">Color By:</label>
-                  <select id="map-color-by">
-                      <option value="borough">Borough</option>
-                      <option value="program">Program Type</option>
-                      <option value="construction">Construction Type</option>
-                      <option value="income">Income Level</option>
-                  </select>
-              </div>
-              <div class="control-group">
-                  <label for="map-size-by">Size By:</label>
-                  <select id="map-size-by">
-                      <option value="units">Total Units</option>
-                      <option value="low-income">Low Income Units</option>
-                      <option value="very-low-income">Very Low Income Units</option>
-                      <option value="extremely-low-income">Extremely Low Income Units</option>
-                  </select>
-              </div>
-          </div> -->
+          
           <div class="map-controls">
             <div class="control-group">
                 <label for="map-color-by">Color By:</label>
@@ -524,7 +118,7 @@
       <div class="row">
         <div class="card wide-card">
             <h3>Housing Units Flow: Boroughs to Income Categories</h3>
-            <div id="sankey-diagram" class="viz-container tall"></div>
+            <div id="sankey-diagram" class="viz-container"></div>
         </div>
     </div>
 
@@ -536,35 +130,6 @@
                 <button id="reset-pcp" class="reset-button">Reset Selection</button>
             </div>
         </div>
-
-        <!-- <div class="row">
-            <div class="card">
-                <h3>Scatterplot Matrix</h3>
-                <div class="viz-container" id="scatterplot-matrix"></div>
-            </div>
-            <div class="card">
-                <h3>Average Profile by Borough</h3>
-                <div class="viz-container" id="radar-chart"></div>
-            </div>
-        </div> -->
-    </div>
-    <!-- Add this to index.html -->
-<!-- <div class="card wide-card">
-  <h3>Affordable Housing Distribution by Borough and Construction Type</h3>
-  <div class="viz-container tall" id="treemap-container">
-      <div id="treemap"></div>
-      <div class="treemap-tooltip" id="treemap-tooltip"></div>
-  </div>
-  <div class="treemap-controls">
-      <div class="control-group">
-          <label for="treemap-color">Color By:</label>
-          <select id="treemap-color">
-              <option value="borough">Borough</option>
-              <option value="construction">Construction Type</option>
-          </select>
-      </div>
-  </div>
-</div> -->
 
 
     <div class="tooltip" id="tooltip"></div>
