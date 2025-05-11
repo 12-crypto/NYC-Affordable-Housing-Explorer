@@ -137,68 +137,6 @@ def get_kmeans_elbow():
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
-# Endpoint: PCA Biplot
-@app.route('/biplot', methods=['GET'])
-def get_biplot():
-    try:
-        pc1_idx = int(request.args.get('pc1', 0))
-        pc2_idx = int(request.args.get('pc2', 1))
-        k = int(request.args.get('k', optimal_k))
-        dim = int(request.args.get('dim', len(pca.components_)))
-        
-        if pc1_idx < 0 or pc1_idx >= len(pca.components_) or pc2_idx < 0 or pc2_idx >= len(pca.components_):
-            return jsonify({"error": "Invalid PCA indices."}), 400
-            
-        # Run KMeans on reduced PCA data for given dimension
-        reduced_data = pca_transformed[:, :dim]
-        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-        cluster_labels = kmeans.fit_predict(reduced_data)
-        
-        return jsonify({
-            "points": {
-                "x": pca_transformed[:, pc1_idx].tolist(),
-                "y": pca_transformed[:, pc2_idx].tolist(),
-                "clusters": cluster_labels.tolist()
-            },
-            "loadings": {
-                "x": eigenvectors[pc1_idx, :dim].tolist(),
-                "y": eigenvectors[pc2_idx, :dim].tolist()
-            },
-            "features": num_cols[:dim],
-            "variance_explained": {
-                "x": float(pca.explained_variance_ratio_[pc1_idx]),
-                "y": float(pca.explained_variance_ratio_[pc2_idx])
-            }
-        })
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
-
-# Endpoint: Data MDS Plot
-@app.route('/data_mds', methods=['GET'])
-def get_data_mds():
-    try:
-        k = int(request.args.get('k', optimal_k))
-        if k not in kmeans_results:
-            return jsonify({"error": f"No clustering for k={k}"}), 400
-            
-        if len(data_scaled) > 1500:
-            indices = np.random.choice(len(data_scaled), 1500, replace=False)
-            subset = data_scaled[indices]
-            clusters_subset = kmeans_results[k][indices]
-        else:
-            subset = data_scaled
-            clusters_subset = kmeans_results[k]
-            
-        mds = MDS(n_components=2, random_state=42, dissimilarity='euclidean', n_jobs=-1, verbose=0)
-        mds_data = mds.fit_transform(subset)
-        
-        return jsonify({
-            "x": mds_data[:, 0].tolist(),
-            "y": mds_data[:, 1].tolist(),
-            "clusters": clusters_subset.tolist()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 # Endpoint: Full Parallel Coordinates and Geo-map Data
 @app.route('/full_pcp_data', methods=['GET'])
