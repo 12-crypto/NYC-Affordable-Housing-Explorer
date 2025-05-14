@@ -13,27 +13,26 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-# Load and preprocess data
-data_path = "C:\\Users\\samritkar\\OneDrive - Stony Brook University\\Desktop\\Viz final project\\viz-final-project-main\\Affordable_Housing_Production_by_Building_20250226.csv" # Update with your file path
+
+data_path = "/Users/dhruvrathee/Desktop/lab2b/Affordable_Housing_Production_by_Building_20250226.csv" 
 df = pd.read_csv(data_path)
 
-# Define numeric and categorical columns
+
 num_cols = [
-    
-    "Studio Units", "1-BR Units", "2-BR Units", "3-BR Units", "4-BR Units",
-    "5-BR Units", "6-BR+ Units", "Counted Rental Units", "Total Units"
+
+    "Studio Units", "1-BR Units", "2-BR Units", "3-BR Units", "4-BR Units", "Counted Rental Units"
 ]
 
 categorical_cols = [
     "Borough", "Construction Type"
     ]
 
-# Prepare complete data versions (for PCP and geo-map)
+
 num_data = df[num_cols].dropna()
 cat_data = df[categorical_cols].fillna('Unknown')
-all_data = df.copy()  # For endpoints returning full records
+all_data = df.copy() 
 
-# Standardize numeric data and compute PCA
+
 data = df[num_cols].dropna()
 scaler = StandardScaler()
 data_scaled = scaler.fit_transform(data)
@@ -45,8 +44,8 @@ cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
 eigenvectors = pca.components_
 pca_transformed = pca.transform(data_scaled)
 
-# KMeans for cluster assignments on full data
-k_range = range(2, 11)  # clusters from 2 to 10
+
+k_range = range(2, 11)  
 kmeans_results = {}
 inertias = []
 mse_values = []
@@ -82,12 +81,12 @@ def find_elbow_point(inertias):
         angles.append(angle)
     return np.argmax(angles) + 2
 
-# Set a default k from the elbow method (within k_range)
+
 optimal_k = find_elbow_point(inertias)
 if optimal_k < 2:
     optimal_k = 3
 
-# Endpoint: PCA data (Scree Plot)
+
 @app.route('/pca', methods=['GET'])
 def get_pca():
     try:
@@ -99,7 +98,7 @@ def get_pca():
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
-# Endpoint: Top PCA attributes for the first N components
+
 @app.route('/top_pca_attributes', methods=['GET'])
 def get_top_pca_attributes():
     try:
@@ -119,7 +118,7 @@ def get_top_pca_attributes():
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
-# Endpoint: KMeans Elbow Curve in a given PCA subspace
+
 @app.route('/kmeans_elbow', methods=['GET'])
 def get_kmeans_elbow():
     try:
@@ -138,7 +137,7 @@ def get_kmeans_elbow():
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 
-# Endpoint: Full Parallel Coordinates and Geo-map Data
+
 @app.route('/full_pcp_data', methods=['GET'])
 def get_full_pcp_data():
     try:
@@ -175,10 +174,19 @@ def get_full_pcp_data():
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
+
 @app.route('/sankey_data', methods=['GET'])
 def get_sankey_data():
     try:
-        # Define the categories we want to show
+       
+        year = request.args.get('year')
+        df_filtered = df
+        if year:
+            y = int(year)
+            df_filtered = df[df['Project Start Date']
+                                .str.contains(f'/{y}$', na=False)]
+
+        
         incomeCategories = [
             "Extremely Low Income Units",
             "Very Low Income Units",
@@ -187,60 +195,54 @@ def get_sankey_data():
             "Middle Income Units",
             "Other Income Units"
         ]
-        constructionTypes=[
-            "Preserved",
-            "New Construction"
-
-        ]
-        # Get unique boroughs and construction types
-        boroughs = df["Borough"].fillna("Unknown").unique().tolist()
-        constructionTypes = df["Construction Type"].fillna("Unknown").unique().tolist()
+        constructionTypes = df_filtered["Construction Type"] \
+                                .fillna("Unknown").unique().tolist()
+        boroughs = df_filtered["Borough"] \
+                                .fillna("Unknown").unique().tolist()
         
-        # Build nodes: first boroughs, then construction types, then income categories
+       
         nodes = []
-        # Add borough nodes
         for b in boroughs:
             nodes.append({"name": b})
-        
-        # Add construction type nodes
         for ct in constructionTypes:
             nodes.append({"name": ct})
-            
-        # Add income category nodes
         for ic in incomeCategories:
             nodes.append({"name": ic})
         
-        # Create dictionary to track node indices
-        nodeIndex = {}
-        boroughOffset = 0
+      
+        boroughOffset      = 0
         constructionOffset = len(boroughs)
-        incomeOffset = constructionOffset + len(constructionTypes)
+        incomeOffset       = constructionOffset + len(constructionTypes)
         
+        nodeIndex = {}
         for i, b in enumerate(boroughs):
-            nodeIndex[b] = i
+            nodeIndex[b] = boroughOffset + i
         for j, ct in enumerate(constructionTypes):
             nodeIndex[ct] = constructionOffset + j
         for k, ic in enumerate(incomeCategories):
             nodeIndex[ic] = incomeOffset + k
         
-        # Create links: Borough to Construction Type
+        
         links = []
         for b in boroughs:
             for ct in constructionTypes:
-                subset = df[(df["Borough"].fillna("Unknown") == b) & 
-                           (df["Construction Type"].fillna("Unknown") == ct)]
-                if len(subset) > 0:
-                    total_units = subset[incomeCategories].sum().sum()
-                    if total_units > 0:
-                        links.append({
-                            "source": nodeIndex[b],
-                            "target": nodeIndex[ct],
-                            "value": float(total_units)
-                        })
+                subset = df_filtered[
+                    (df_filtered["Borough"].fillna("Unknown") == b) &
+                    (df_filtered["Construction Type"].fillna("Unknown") == ct)
+                ]
+                total_income_units = subset[incomeCategories].fillna(0).sum().sum()
+                if total_income_units > 0:
+                    links.append({
+                        "source": nodeIndex[b],
+                        "target": nodeIndex[ct],
+                        "value": float(total_income_units)
+                    })
+
         
-        # Create links: Construction Type to Income Categories
         for ct in constructionTypes:
-            subset = df[df["Construction Type"].fillna("Unknown") == ct]
+            subset = df_filtered[
+                df_filtered["Construction Type"].fillna("Unknown") == ct
+            ]
             for ic in incomeCategories:
                 val = subset[ic].fillna(0).sum()
                 if val > 0:
@@ -251,72 +253,29 @@ def get_sankey_data():
                     })
         
         return jsonify({"nodes": nodes, "links": links})
+    
     except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+        return jsonify({
+            "error": str(e),
+            "trace": traceback.format_exc()
+        }), 500
 
-# # Endpoint: Sankey Diagram Data
-# @app.route('/sankey_data', methods=['GET'])
-# def get_sankey_data():
-#     try:
-#         # Aggregate flows from Borough (source) to each Income Category (target)
-#         incomeCategories = [
-#             "Extremely Low Income Units",
-#             "Very Low Income Units",
-#             "Low Income Units",
-#             "Moderate Income Units",
-#             "Middle Income Units",
-#             "Other Income Units"
-#         ]
-        
-#         # Get unique boroughs
-#         boroughs = df["Borough"].fillna("Unknown").unique().tolist()
-        
-#         # Build nodes: first all boroughs, then income categories
-#         nodes = [{"name": b} for b in boroughs] + [{"name": ic} for ic in incomeCategories]
-        
-#         # Create dictionary to track node indices
-#         nodeIndex = {}
-#         boroughOffset = 0
-#         incomeOffset = len(boroughs)
-        
-#         for i, b in enumerate(boroughs):
-#             nodeIndex[b] = i
-#         for j, ic in enumerate(incomeCategories):
-#             nodeIndex[ic] = incomeOffset + j
-            
-#         # Aggregate links: for each borough, sum up each income category column
-#         links = []
-#         for b in boroughs:
-#             subset = df[df["Borough"].fillna("Unknown") == b]
-#             for ic in incomeCategories:
-#                 val = subset[ic].fillna(0).sum()
-#                 # Only add link if value > 0
-#                 if val > 0:
-#                     links.append({
-#                         "source": nodeIndex[b],
-#                         "target": nodeIndex[ic],
-#                         "value": float(val)
-#                     })
-                    
-#         return jsonify({"nodes": nodes, "links": links})
-#     except Exception as e:
-#         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
 
 @app.route('/borough_units', methods=['GET'])
 def get_borough_units():
     try:
-        # Get year parameter from query string, default to all years
+        
         year = request.args.get('year')
         
-        # Create a filtered dataframe based on year if provided
         filtered_df = df
         if year:
-            # Convert year to integer and filter by the Project Start Date
+           
             year = int(year)
-            # Assuming the date column is in format MM/DD/YYYY
+            
             filtered_df = df[df['Project Start Date'].str.contains(f'/{year}$', na=False)]
         
-        # Group by borough and sum units
+       
         borough_data = filtered_df.groupby('Borough').agg({
             'Total Units': 'sum',
             'Extremely Low Income Units': 'sum',
@@ -331,26 +290,25 @@ def get_borough_units():
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
-# Endpoint: Pie chart data with year filter
+
 @app.route('/pie_data', methods=['GET'])
 def get_pie_data():
     try:
-        # Get year parameter from query string, default to all years
+        
         year = request.args.get('year')
         
-        # Create a filtered dataframe based on year if provided
         filtered_df = df
         if year:
-            # Convert year to integer and filter by the Project Start Date
+            
             year = int(year)
-            # Assuming the date column is in format MM/DD/YYYY
+            
             filtered_df = df[df['Project Start Date'].str.contains(f'/{year}$', na=False)]
         
-        # Construction type distribution
+        
         construction_data = filtered_df['Construction Type'].fillna('Unknown').value_counts().reset_index()
         construction_data.columns = ['type', 'count']
         
-        # Borough distribution
+        
         borough_data = filtered_df['Borough'].fillna('Unknown').value_counts().reset_index()
         borough_data.columns = ['borough', 'count']
         
@@ -362,38 +320,14 @@ def get_pie_data():
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 
-# @app.route('/stacked_income', methods=['GET'])
-# def stacked_income():
-#     # group by borough and income bands
-#     df2 = df.fillna(0)
-#     income_cols = [
-#        "Extremely Low Income Units","Very Low Income Units","Low Income Units",
-#        "Moderate Income Units","Middle Income Units","Other Income Units"
-#     ]
-#     grp = (df2
-#         .groupby("Borough")[income_cols]
-#         .sum()
-#         .reset_index()
-#     )
-#     # convert to long format
-#     records = []
-#     for _, row in grp.iterrows():
-#         b = row["Borough"]
-#         for col in income_cols:
-#             records.append({
-#               "borough": b,
-#               "category": col.replace(" Income Units",""),
-#               "value": int(row[col])
-#             })
-#     return jsonify(records)
 
 @app.route('/sunburst_years', methods=['GET'])
 def get_sunburst_years():
-    # Extract year from Project Start Date (MM/DD/YYYY)
+   
     df_year = df.copy()
     df_year['Year'] = df_year['Project Start Date'].str.extract(r'/(\d{4})$')[0]
     
-    # Sum Total Units by Year → Borough
+   
     grp = (
         df_year
         .groupby(['Year','Borough'])
@@ -401,7 +335,7 @@ def get_sunburst_years():
         .reset_index()
     )
     
-    # Build hierarchical JSON: Year → Borough → value
+    
     root = {'name':'All Years','children':[]}
     for year, sub in grp.groupby('Year'):
         node = {'name': year, 'children': []}
@@ -418,29 +352,28 @@ def get_sunburst_years():
 @app.route('/geo_data', methods=['GET'])
 def get_geo_data():
     try:
-        # Get year parameter from query string
+        
         year = request.args.get('year')
         
-        # Filter for buildings with valid coordinates
+        
         geo_data = df[df['Latitude'].notna() & df['Longitude'].notna()].copy()
         
-        # Filter by year if provided
+        
         if year:
-            # Convert year to integer and filter by the Project Start Date
+           
             year = int(year)
-            # Assuming the date column is in format MM/DD/YYYY
             geo_data = geo_data[geo_data['Project Start Date'].str.contains(f'/{year}$', na=False)]
         
-        # Select relevant columns for the geo map visualization
+        
         result = geo_data[['Project Name', 'Latitude', 'Longitude', 'Borough', 'Total Units',
                           'Construction Type', 'Extremely Low Income Units', 
                           'Very Low Income Units', 'Low Income Units', 'Moderate Income Units', 
                           'Middle Income Units', 'Other Income Units']].fillna('Unknown')
         
-        # Convert to records format
+        
         records = result.to_dict(orient='records')
         
-        # Return as JSON
+       
         return jsonify(records)
     except Exception as e:
         app.logger.error(f"Error in geo_data endpoint: {str(e)}")
@@ -451,17 +384,16 @@ def get_geo_data():
 
 @app.route('/sunburst_data', methods=['GET'])
 def get_sunburst_data():
-    # Build a hierarchy: Borough → Construction Type → sum(Total Units)
+   
     filtered = df.copy()
-    # (Optional: filter by year/project date as you do elsewhere)
     
-    # Group
+    
+
     grp = (filtered
            .groupby(['Borough','Construction Type'])
            .agg({'Total Units':'sum'})
            .reset_index())
     
-    # Nest into dict
     root = {'name':'NYC','children':[]}
     for borough, g1 in grp.groupby('Borough'):
         node = {'name':borough,'children':[]}

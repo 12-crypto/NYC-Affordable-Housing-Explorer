@@ -1,23 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYC Affordable Housing Analytics</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.7.1/d3-sankey.min.js"></script>
-    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>NYC Affordable Housing Visual Analytics</title>
+
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.7.1/d3-sankey.min.js"></script>
+  <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 <body>
-    <header>
-        <h1>NYC Affordable Housing Visual Analytics</h1>
-        <div class="controls">
+  <header>
+    <h1>NYC Affordable Housing Visual Analytics</h1>
+    <div class="controls">
+      <div class="controls">
             <div class="control-group">
                 <label for="borough-filter">Borough</label>
                 <select id="borough-filter">
@@ -35,105 +37,84 @@
                     <option value="all">All Types</option>
                 </select>
             </div>
-            <div class="control-group">
-                <label for="year-range">Year Range</label>
-                <div class="range-slider">
-                    <input type="range" id="year-min" min="2000" max="2025" value="2000">
-                    <input type="range" id="year-max" min="2000" max="2025" value="2025">
-                    <span id="year-display">2000-2025</span>
-                </div>
-            </div>
+            
         </div>
-    </header>
+    </div>
+  </header>
 
-    <div class="dashboard-container">
-        <div class="row">
-          <div class="card">
-            <h3>Units by Borough</h3>
-            <div class="viz-container" id="borough-chart"></div>
+  <div class="dashboard-grid">
+    <!-- 1. Geo map -->
+
+    <div class="card map-card">
+        <h3>Spatial Distribution of Affordable Housing</h3>
+      
+        <div id="geo-map" class="viz-container tall"></div>
+      
+       
+        <div class="map-controls">
+          <div class="control-group">
+            <label for="map-color-by">Color By:</label>
+            <select id="map-color-by" onchange="updateMapSettings()">
+              <option value="Borough">Borough</option>
+              <option value="Construction Type">Construction Type</option>
+            </select>
           </div>
-          
-
-          <div class="card">
-            <h3>Pie Chart View</h3>
-            <div style="text-align: center; margin-bottom: 10px;">
-                <button id="toggle-pie-btn">Toggle Chart</button>
-            </div>
-            <div class="viz-container" id="combined-pie"></div>
-        </div>
-
-        <!-- <div class="card">
-          <h3>Units by Borough → Income Category</h3>
-          <div class="viz-container" id="stacked-bar"></div>
-        </div> -->
-
-        <div class="card">
-          <h3>Year Selector</h3>
-          <div class="viz-container" id="sunburst-year"></div>
-        </div>
-        
-        
-        
-        </div>
-        <div class="year-selector-container">
-            <h4>Filter by Year</h4>
-            <div class="year-input-group">
-              <button type="button" class="button hollow circle" data-quantity="minus" data-field="year">
-                -
-              </button>
-              <input class="input-group-field" type="number" name="year" value="2014" min="2014" max="2025" readonly>
-              <button type="button" class="button hollow circle" data-quantity="plus" data-field="year">
-                +
-              </button>
-            </div>
+          <div class="control-group">
+            <label for="map-size-by">Size By:</label>
+            <select id="map-size-by" onchange="updateMapSettings()">
+              <option value="Total Units">Total Units</option>
+              <option value="Extremely Low Income Units">Extremely Low Income Units</option>
+              <option value="Very Low Income Units">Very Low Income Units</option>
+              <option value="Low Income Units">Low Income Units</option>
+              <option value="Moderate Income Units">Moderate Income Units</option>
+              <option value="Middle Income Units">Middle Income Units</option>
+            </select>
           </div>
-          
-        <div class="card wide-card">
-          <h3>Geographic Distribution</h3>
-          <div class="viz-container tall" id="geo-map"></div>
-          
-          <div class="map-controls">
-            <div class="control-group">
-                <label for="map-color-by">Color By:</label>
-                <select id="map-color-by" onchange="updateMapSettings()">
-                    <option value="Borough">Borough</option>
-                    <option value="Construction Type">Construction Type</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label for="map-size-by">Size By:</label>
-                <select id="map-size-by" onchange="updateMapSettings()">
-                    <option value="Total Units">Total Units</option>
-                    <option value="Extremely Low Income Units">Extremely Low Income Units</option>
-                    <option value="Very Low Income Units">Very Low Income Units</option>
-                    <option value="Low Income Units">Low Income Units</option>
-                    <option value="Moderate Income Units">Moderate Income Units</option>
-                    <option value="Middle Income Units">Middle Income Units</option>
-                </select>
-            </div>
         </div>
       </div>
       
-
-      <div class="row">
-        <div class="card wide-card">
-            <h3>Housing Units Flow: Boroughs to Income Categories</h3>
-            <div id="sankey-diagram" class="viz-container"></div>
-        </div>
+    <div class="card sunburst-card">
+        <h3>Yearly Breakdown of Housing Units</h3>
+        <div id="sunburst-year" class="viz-container"></div>
+        <div id="sunburst-label" class="sunburst-label"></div>
+        <div id="sunburst-legends" class="legend-horizontal"></div>      
+      </div>
+          
+    <!-- 3. Toggle Pie -->
+    <div class="card pie-card">
+      <h3>Pie Chart View</h3>
+      
+      <div id="combined-pie" class="viz-container"></div>
+      <div id="pie-legends" class="legend-horizontal"></div>
+      <button id="toggle-pie-btn">Toggle Chart</button>
     </div>
 
-       
-        <div class="row">
-            <div class="card wide-card">
-                <h3>Parallel Coordinates</h3>
-                <div class="viz-container tall" id="pcp"></div>
-                <button id="reset-pcp" class="reset-button">Reset Selection</button>
-            </div>
-        </div>
+    <!-- 4. Units by Borough bar chart -->
+    <div class="card borough-card">
+      <h3>Total Affordable Housing Units </h3>
+      <div id="borough-chart" class="viz-container"></div>
+    </div>
 
+    <!-- 5. Sankey -->
+    <div class="card sankey-card">
+      <h3>Flow of Housing Units: Borough → Construction Type → Income Category</h3>
+      <div id="sankey-diagram" class="viz-container"></div>
+    </div>
 
-    <div class="tooltip" id="tooltip"></div>
+    <!-- 6. Parallel Coordinates -->
+    <div class="card pcp-card">
+        <h3>Multi-Dimensional Housing Breakdown</h3>
+        <div id="pcp" class="viz-container"></div>
+        <div id="pcp-legends" class="legend-horizontal"></div>
+        <button id="reset-pcp" class="reset-button">Reset Selection</button>
+      </div>
 
-    <script src="script.js"></script>
+  <div class="tooltip" id="tooltip"></div>
+
+  
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
