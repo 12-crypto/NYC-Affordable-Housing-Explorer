@@ -25,11 +25,11 @@ let sunburstInitialized = false,
         'Staten Island':'#9467bd'
       };    
 
-// Create tooltip
+
 const tooltip = d3.select('#tooltip');
 
 
-// Utility functions
+
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -38,7 +38,7 @@ function debounce(func, wait) {
     };
 }
 
-// Initialize the dashboard
+
 document.addEventListener('DOMContentLoaded', () => {
     
     initializeFilters();
@@ -547,7 +547,7 @@ function loadSunburstYearChart() {
           .startAngle(d => d.x0)
           .endAngle(  d => d.x1)
           .innerRadius(d => d.y0)
-          .outerRadius(d => d.y1 + 20);  // 20px outward “pop”
+          .outerRadius(d => d.y1 + 20);  
   
  
         const nodes = root.descendants().filter(d=>d.depth>0);
