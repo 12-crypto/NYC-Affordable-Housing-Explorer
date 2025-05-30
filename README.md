@@ -12,4 +12,8 @@ Link: https://www.youtube.com/watch?v=R9fkcc9ry_0
 - **Data Processing**: Python, Pandas 
 - **Machine Learning**: Scikit-learn
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 
