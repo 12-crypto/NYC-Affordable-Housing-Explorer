@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 
-data_path = "/Users/dhruvrathee/Desktop/lab2b/Affordable_Housing_Production_by_Building_20250226.csv" 
+data_path = "Affordable_Housing_Production_by_Building_20250226.csv" 
 df = pd.read_csv(data_path)
 
 
