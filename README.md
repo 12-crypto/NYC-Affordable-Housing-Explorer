@@ -1,6 +1,6 @@
 # NYC Affordable Housing Dashboard 🏠📊
 This comprehensive dashboard enables policymakers, urban planners, and researchers to explore NYC's affordable housing landscape through multiple analytical lenses, revealing critical patterns in housing equity, development trends, and resource allocation across all five boroughs.
-<img width="2490" height="1652" alt="image" src="https://github.com/user-attachments/assets/ecb54a56-80dd-4095-bd2f-3224e8686a37" />
+
 ![image](https://github.com/user-attachments/assets/bd02950c-9612-4d82-b4ee-50068ab70782)
 Link: https://www.youtube.com/watch?v=R9fkcc9ry_0
 
